@@ -13,4 +13,16 @@
     </div>
     <button class="btn btn-dark">حفظ</button>
 </form>
+
+<hr class="my-4">
+<h5>تغيير بيانات دخول الأدمن</h5>
+<form method="POST" style="max-width:400px;">
+    <label class="form-label">اسم المستخدم الجديد</label>
+    <input class="form-control mb-3" name="new_username" required>
+    <label class="form-label">كلمة المرور الجديدة</label>
+    <input class="form-control mb-3" type="password" name="new_password" required>
+    <label class="form-label">كلمة المرور الحالية (للتأكيد)</label>
+    <input class="form-control mb-3" type="password" name="current_password" required>
+    <button class="btn btn-outline-dark">تحديث بيانات الدخول</button>
+</form>
 {% endblock %}
