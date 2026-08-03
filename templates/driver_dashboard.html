@@ -1,0 +1,21 @@
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0">طلباتي</h5>
+    <a href="{{ url_for('available_orders') }}" class="btn btn-dark btn-sm">عرض الطلبات المتاحة</a>
+</div>
+<table class="table bg-white">
+    <thead><tr><th>كود الطلب</th><th>الحالة</th><th>السعر</th><th>التفاصيل</th><th></th></tr></thead>
+    <tbody>
+    {% for o in orders %}
+        <tr>
+            <td>{{ o.order_code }}</td><td>{{ o.status }}</td><td>{{ o.price }}</td><td>{{ o.details }}</td>
+            <td>
+                {% if o.status == 'قيد التوصيل' %}
+                <form method="POST" action="{{ url_for('driver_finish_order', order_code=o.order_code) }}">
+                    <button class="btn btn-sm btn-primary">إنهاء الطلب</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>

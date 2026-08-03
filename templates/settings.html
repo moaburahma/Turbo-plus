@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-4">الإعدادات</h3>
+<form method="POST" style="max-width:400px;">
+    <label class="form-label">نسبة العمولة (%)</label>
+    <input class="form-control mb-3" name="commission_percent" value="{{ commission }}">
+    <label class="form-label">قيمة النقطة لكل طلب</label>
+    <input class="form-control mb-3" name="points_per_order" value="{{ points }}">
+    <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" name="individual_enabled" id="ie"
+               {% if individual_enabled == '1' %}checked{% endif %}>
+        <label class="form-check-label" for="ie">تفعيل خيار "توصيل أفراد" للعملاء</label>
+    </div>
+    <button class="btn btn-dark">حفظ</button>
+</form>
+{% endblock %}

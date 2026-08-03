@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-4">الشكاوى</h3>
+{% with messages = get_flashed_messages() %}{% if messages %}<div class="alert alert-success">{{ messages[0] }}</div>{% endif %}{% endwith %}
+<table class="table bg-white">
+    <thead><tr><th>رقم الطلب</th><th>العميل</th><th>الرسالة</th><th>الحالة</th><th>الرد</th></tr></thead>
+    <tbody>
+    {% for c in complaints %}
+        <tr>
+            <td>{{ c.order_id }}</td><td>{{ c.customer_phone }}</td><td>{{ c.message }}</td><td>{{ c.status }}</td>
+            <td>
+                <form method="POST" action="{{ url_for('reply_complaint', complaint_id=c.id) }}" class="d-flex gap-1">
+                    <input class="form-control form-control-sm" name="reply" placeholder="اكتب ردك...">
+                    <button class="btn btn-sm btn-dark">إرسال</button>
+                </form>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

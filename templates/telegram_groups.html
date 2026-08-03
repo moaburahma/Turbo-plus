@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-4">جروبات المناديب على تليجرام</h3>
+<form method="POST" action="{{ url_for('add_telegram_group') }}" class="d-flex gap-2 mb-4">
+    <input class="form-control" name="chat_id" placeholder="Chat ID (زي -1001234567890)" required>
+    <input class="form-control" name="label" placeholder="اسم توضيحي (زي: مندوبين أسيوط)" required>
+    <button class="btn btn-dark">إضافة</button>
+</form>
+<table class="table bg-white">
+    <thead><tr><th>الاسم</th><th>Chat ID</th><th></th></tr></thead>
+    <tbody>
+    {% for g in groups %}
+        <tr>
+            <td>{{ g.label }}</td><td>{{ g.chat_id }}</td>
+            <td><form method="POST" action="{{ url_for('delete_telegram_group', group_id=g.id) }}">
+                <button class="btn btn-sm btn-danger">حذف</button></form></td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+<p class="text-muted">علشان تجيبي Chat ID لجروب جديد: ضيفي البوت للجروب، واكتبي فيه <code>/groupid</code>، وهيردلك بالرقم مباشرة.</p>
+{% endblock %}

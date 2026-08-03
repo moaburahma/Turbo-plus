@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-4">الطلبات المتاحة</h3>
+{% with messages = get_flashed_messages() %}{% if messages %}<div class="alert alert-info">{{ messages[0] }}</div>{% endif %}{% endwith %}
+<table class="table bg-white">
+    <thead><tr><th>الكود</th><th>النوع</th><th>السعر</th><th>التفاصيل</th><th></th></tr></thead>
+    <tbody>
+    {% for o in orders %}
+        <tr>
+            <td>{{ o.order_code }}</td><td>{{ o.order_type }}</td><td>{{ o.price }}</td><td>{{ o.details }}</td>
+            <td><form method="POST" action="{{ url_for('claim_order', order_code=o.order_code) }}">
+                <button class="btn btn-sm btn-success">قبول الطلب</button></form></td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

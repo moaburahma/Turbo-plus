@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-4">نصوص البوت</h3>
+<p class="text-muted">تقدر تعدّل نص أي رسالة بيبعتها البوت من هنا. الكلمات جوه أقواس زي {order_code} أو {price} لازم تفضل زي ما هي عشان البوت يقدر يحط القيمة الصح مكانها.</p>
+<form method="POST" action="{{ url_for('update_messages') }}">
+    {% for m in messages %}
+        <div class="mb-3">
+            <label class="form-label"><code>{{ m.key }}</code></label>
+            <textarea class="form-control" name="{{ m.key }}" rows="2">{{ m.value }}</textarea>
+        </div>
+    {% endfor %}
+    <button class="btn btn-dark">حفظ كل التعديلات</button>
+</form>
+{% endblock %}

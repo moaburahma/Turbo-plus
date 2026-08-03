@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-4">الطلبات</h3>
+<form class="mb-3" method="GET">
+    <input class="form-control" name="q" value="{{ search }}" placeholder="ابحث برقم الطلب...">
+</form>
+<table class="table bg-white">
+    <thead><tr><th>الكود</th><th>العميل</th><th>السعر</th><th>الحالة</th><th>التفاصيل</th><th>تغيير الحالة</th></tr></thead>
+    <tbody>
+    {% for o in orders %}
+        <tr>
+            <td>{{ o.order_code }}</td>
+            <td>{{ o.customer_phone }}</td>
+            <td>{{ o.price }}</td>
+            <td>{{ o.status }}</td>
+            <td>{{ o.details }}</td>
+            <td>
+                <form method="POST" action="{{ url_for('update_order_status', order_id=o.id) }}" class="d-flex gap-1">
+                    <select name="status" class="form-select form-select-sm">
+                        <option {% if o.status == 'جديد' %}selected{% endif %}>جديد</option>
+                        <option {% if o.status == 'قيد التوصيل' %}selected{% endif %}>قيد التوصيل</option>
+                        <option {% if o.status == 'مكتملة' %}selected{% endif %}>مكتملة</option>
+                        <option {% if o.status == 'ملغاة' %}selected{% endif %}>ملغاة</option>
+                        <option {% if o.status == 'مشكو منها' %}selected{% endif %}>مشكو منها</option>
+                    </select>
+                    <button class="btn btn-sm btn-dark">حفظ</button>
+                </form>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

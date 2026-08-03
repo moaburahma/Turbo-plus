@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-4">العملاء والنقاط</h3>
+{% with messages = get_flashed_messages() %}{% if messages %}<div class="alert alert-success">{{ messages[0] }}</div>{% endif %}{% endwith %}
+<table class="table bg-white">
+    <thead><tr><th>الرقم</th><th>النقاط الحالية</th><th>إضافة نقاط</th></tr></thead>
+    <tbody>
+    {% for c in customers %}
+        <tr>
+            <td>{{ c.phone }}</td><td>{{ c.points }}</td>
+            <td>
+                <form method="POST" action="{{ url_for('add_customer_points', customer_id=c.id) }}" class="d-flex gap-1">
+                    <input type="number" step="0.5" name="points" class="form-control form-control-sm" style="width:100px" placeholder="عدد">
+                    <button class="btn btn-sm btn-success">إضافة وإبلاغ العميل</button>
+                </form>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

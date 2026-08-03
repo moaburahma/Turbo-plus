@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-4">الرئيسية</h3>
+<div class="row g-3 mb-4">
+    <div class="col-md-2"><div class="card card-stat p-3 text-center"><h6>طلبات جديدة</h6><h3>{{ stats.new }}</h3></div></div>
+    <div class="col-md-2"><div class="card card-stat p-3 text-center"><h6>قيد التوصيل</h6><h3>{{ stats.in_delivery }}</h3></div></div>
+    <div class="col-md-2"><div class="card card-stat p-3 text-center"><h6>مكتملة</h6><h3>{{ stats.completed }}</h3></div></div>
+    <div class="col-md-2"><div class="card card-stat p-3 text-center"><h6>ملغاة</h6><h3>{{ stats.cancelled }}</h3></div></div>
+    <div class="col-md-2"><div class="card card-stat p-3 text-center"><h6>شكاوى</h6><h3>{{ stats.complaints }}</h3></div></div>
+    <div class="col-md-2"><div class="card card-stat p-3 text-center bg-dark text-white"><h6>رصيد الأدمن</h6><h3>{{ admin_balance }} ج</h3></div></div>
+</div>
+<h5>آخر الطلبات</h5>
+<table class="table bg-white">
+    <thead><tr><th>الكود</th><th>العميل</th><th>السعر</th><th>الحالة</th><th>التفاصيل</th></tr></thead>
+    <tbody>
+    {% for o in recent_orders %}
+        <tr><td>{{ o.order_code }}</td><td>{{ o.customer_phone }}</td><td>{{ o.price }}</td><td>{{ o.status }}</td><td>{{ o.details }}</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

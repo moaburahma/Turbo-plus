@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>لوحة التحكم</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    <style>
+        body { background: #f4f6f9; font-family: 'Segoe UI', sans-serif; }
+        .sidebar { background: #1e2430; min-height: 100vh; color: #fff; }
+        .sidebar a { color: #cfd4dc; text-decoration: none; display: block; padding: 12px 20px; }
+        .sidebar a:hover, .sidebar a.active { background: #2a3142; color: #fff; }
+        .card-stat { border: none; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    </style>
+</head>
+<body>
+<div class="d-flex">
+    <div class="sidebar" style="width: 220px;">
+        <h5 class="text-center py-4">لوحة التحكم</h5>
+        <a href="{{ url_for('dashboard') }}">الرئيسية</a>
+        <a href="{{ url_for('orders') }}">الطلبات</a>
+        <a href="{{ url_for('drivers') }}">المناديب</a>
+        <a href="{{ url_for('complaints') }}">الشكاوى</a>
+        <a href="{{ url_for('settings') }}">الإعدادات</a>
+        <a href="{{ url_for('customers') }}">العملاء والنقاط</a>
+        <a href="{{ url_for('telegram_groups') }}">جروبات تليجرام</a>
+        <a href="{{ url_for('messages') }}">نصوص البوت</a>
+        <a href="{{ url_for('logout') }}">تسجيل خروج</a>
+    </div>
+    <div class="flex-grow-1 p-4">
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <div class="alert alert-danger">{{ messages[0] }}</div>
+          {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </div>
+</div>
+</body>
+</html>
