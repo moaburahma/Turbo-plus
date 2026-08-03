@@ -144,17 +144,31 @@ def update_driver(driver_id):
 def settings():
     conn = get_db()
     if request.method == "POST":
-        conn.execute("UPDATE settings SET value = ? WHERE key = 'commission_percent'", (request.form["commission_percent"],))
-        conn.execute("UPDATE settings SET value = ? WHERE key = 'points_per_order'", (request.form["points_per_order"],))
-        individual = "1" if request.form.get("individual_enabled") == "on" else "0"
-        conn.execute("UPDATE settings SET value = ? WHERE key = 'individual_enabled'", (individual,))
-        conn.commit()
+        if "commission_percent" in request.form:
+            conn.execute("UPDATE settings SET value = ? WHERE key = 'commission_percent'", (request.form["commission_percent"],))
+            conn.execute("UPDATE settings SET value = ? WHERE key = 'points_per_order'", (request.form["points_per_order"],))
+            individual = "1" if request.form.get("individual_enabled") == "on" else "0"
+            conn.execute("UPDATE settings SET value = ? WHERE key = 'individual_enabled'", (individual,))
+            conn.commit()
+            flash("تم حفظ الإعدادات")
+
+        elif "new_username" in request.form:
+            admin = conn.execute("SELECT * FROM admin_users WHERE id = ?", (session["admin_id"],)).fetchone()
+            if check_password_hash(admin["password_hash"], request.form["current_password"]):
+                conn.execute("UPDATE admin_users SET username = ?, password_hash = ? WHERE id = ?",
+                             (request.form["new_username"], generate_password_hash(request.form["new_password"]), session["admin_id"]))
+                conn.commit()
+                flash("تم تحديث بيانات الدخول، سجّل دخول تاني بالبيانات الجديدة")
+                session.clear()
+                return redirect(url_for("login"))
+            else:
+                flash("كلمة المرور الحالية غلط")
+
     commission = conn.execute("SELECT value FROM settings WHERE key='commission_percent'").fetchone()["value"]
     points = conn.execute("SELECT value FROM settings WHERE key='points_per_order'").fetchone()["value"]
     individual_enabled = conn.execute("SELECT value FROM settings WHERE key='individual_enabled'").fetchone()["value"]
     conn.close()
     return render_template("settings.html", commission=commission, points=points, individual_enabled=individual_enabled)
-
 
 # ============ نصوص البوت ============
 @app.route("/messages")
