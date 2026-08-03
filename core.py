@@ -1,7 +1,8 @@
-import sqlite3
 import re
 import os
 import requests
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
@@ -11,13 +12,35 @@ MIN_PRICE = 25
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN")
 PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
-DB_PATH = os.getenv("DB_PATH", "database.db")
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+
+class DBConnection:
+    """
+    Wrapper بيخلي psycopg2 يتصرف زي sqlite3.Connection اللي كان مستخدم قبل كده،
+    عشان الكود القديم (execute بعلامة ? وبيرجع rows بتتقرا زي dict) يفضل شغال
+    من غير ما نعدل كل استعلام سطر بسطر.
+    """
+
+    def __init__(self, conn):
+        self._conn = conn
+
+    def execute(self, query, params=()):
+        query = query.replace("?", "%s")
+        cur = self._conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute(query, params)
+        return cur
+
+    def commit(self):
+        self._conn.commit()
+
+    def close(self):
+        self._conn.close()
 
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    conn = psycopg2.connect(DATABASE_URL)
+    return DBConnection(conn)
 
 
 def get_setting(key):
@@ -64,7 +87,10 @@ def get_telegram_driver_groups():
 
 def add_telegram_group(chat_id, label):
     conn = get_db()
-    conn.execute("INSERT OR IGNORE INTO telegram_groups (chat_id, label, role) VALUES (?, ?, 'drivers')", (chat_id, label))
+    conn.execute(
+        "INSERT INTO telegram_groups (chat_id, label, role) VALUES (?, ?, 'drivers') ON CONFLICT (chat_id) DO NOTHING",
+        (chat_id, label)
+    )
     conn.commit()
     conn.close()
 
