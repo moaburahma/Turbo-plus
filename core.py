@@ -11,10 +11,11 @@ MIN_PRICE = 25
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN")
 PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
+DB_PATH = os.getenv("DB_PATH", "database.db")
 
 
 def get_db():
-    conn = sqlite3.connect("database.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 

@@ -1,14 +1,20 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import sqlite3
+import os
 from functools import wraps
 from werkzeug.security import check_password_hash, generate_password_hash
+from whatsapp_webhook import whatsapp_bp
 
 app = Flask(__name__)
-app.secret_key = "change-this-secret-key-later"
+app.secret_key = os.getenv("SECRET_KEY", "change-this-secret-key-later")
+app.register_blueprint(whatsapp_bp)
+
+
+DB_PATH = os.getenv("DB_PATH", "database.db")
 
 
 def get_db():
-    conn = sqlite3.connect("database.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
