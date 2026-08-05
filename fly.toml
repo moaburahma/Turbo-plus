@@ -1,43 +1,41 @@
-# fly.toml app configuration file generated for turbo-plus on 2026-08-03T16:16:22Z
-#
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
-
-app = 'turbo-plus'
-primary_region = 'ams'
+app = "turbo-plus"
+primary_region = "fra"
 
 [build]
 
-[env]
-  DB_PATH = '/data/database.db'
-  PORT = '5000'
-
 [processes]
-  app = 'gunicorn --bind 0.0.0.0:5000 app:app'
-  worker = 'python telegram_bot.py'
-  
-[[mounts]]
-  source = 'turbo_plus_data'
-  destination = '/data'
+  whatsapp = "gunicorn -w 1 -b 0.0.0.0:8080 app:app"
+  dashboard = "gunicorn -w 1 -b 0.0.0.0:8081 dashboard:app"
+  telegrambot = "python telegram_bot.py"
 
-[http_service]
-  internal_port = 5000
-  force_https = true
-  auto_stop_machines = 'off'
+[[services]]
+  processes = ["whatsapp"]
+  internal_port = 8080
+  protocol = "tcp"
+  auto_stop_machines = false
   auto_start_machines = true
   min_machines_running = 1
-  processes = ['app']
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+[[services]]
+  processes = ["dashboard"]
+  internal_port = 8081
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[services.ports]]
+    port = 8081
+    handlers = ["tls", "http"]
 
 [[vm]]
-  memory = '256mb'
-  cpu_kind = 'shared'
+  memory = "512mb"
+  cpu_kind = "shared"
   cpus = 1
-  memory_mb = 256
-  processes = ['app']
-
-[[vm]]
-  memory = '256mb'
-  cpu_kind = 'shared'
-  cpus = 1
-  memory_mb = 256
-  processes = ['worker']

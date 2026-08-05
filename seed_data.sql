@@ -44,3 +44,10 @@ INSERT INTO bot_messages (key, value) VALUES ('button_finish', 'إنهاء ال�
 INSERT INTO bot_messages (key, value) VALUES ('customer_order_accepted', 'تم قبول طلبك #{order_code} من مندوب، هيتم التواصل معاك قريبًا.') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 INSERT INTO bot_messages (key, value) VALUES ('driver_finish_confirmed', 'تم إنهاء الطلب #{order_code}، تقدر تقبل طلبات جديدة دلوقتي.') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 INSERT INTO bot_messages (key, value) VALUES ('points_update', '🎉 اتضافلك {points_earned} نقطة! رصيدك الحالي من النقاط: {points_balance} نقطة.') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+
+
+
+
+INSERT INTO telegram_groups (chat_id, label, role)
+VALUES ('-5445890348', 'جروب المناديب الأساسي', 'drivers')
+ON CONFLICT (chat_id) DO NOTHING;
