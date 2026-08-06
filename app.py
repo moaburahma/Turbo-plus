@@ -64,6 +64,7 @@ def login():
         admin = conn.execute("SELECT * FROM admin_users WHERE username = ?", (request.form["username"],)).fetchone()
         conn.close()
         if admin and check_password_hash(admin["password_hash"], request.form["password"]):
+            session.clear()
             session["admin_id"] = admin["id"]
             return redirect(url_for("dashboard"))
         flash("اسم المستخدم أو كلمة المرور غلط")
@@ -263,6 +264,7 @@ def driver_login():
         driver = conn.execute("SELECT * FROM drivers WHERE phone = ?", (request.form["phone"],)).fetchone()
         conn.close()
         if driver and driver["password_hash"] and check_password_hash(driver["password_hash"], request.form["password"]):
+            session.clear()
             session["driver_id"] = driver["id"]
             return redirect(url_for("driver_dashboard"))
         flash("رقم الهاتف أو كلمة المرور غلط")
@@ -271,7 +273,7 @@ def driver_login():
 
 @app.route("/driver/logout")
 def driver_logout():
-    session.pop("driver_id", None)
+    session.clear()
     return redirect(url_for("driver_login"))
 
 
