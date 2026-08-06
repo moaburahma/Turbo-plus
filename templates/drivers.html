@@ -5,16 +5,18 @@
     <input class="form-control" name="name" placeholder="اسم المندوب" required>
     <input class="form-control" name="phone" placeholder="رقم الهاتف (201xxxxxxxxx)" required>
     <input class="form-control" name="password" placeholder="كلمة مرور مبدئية" required>
+    <input class="form-control" name="telegram_user_id" placeholder="Telegram User ID (اختياري)">
     <button class="btn btn-dark">إضافة مندوب</button>
 </form>
 <table class="table bg-white">
-    <thead><tr><th>الاسم</th><th>الرقم</th><th>الرصيد</th><th>عدد الطلبات الشهري</th><th>الحالة</th><th>إجراءات</th></tr></thead>
+    <thead><tr><th>الاسم</th><th>الرقم</th><th>الرصيد</th><th>عدد الطلبات الشهري</th><th>الحالة</th><th>Telegram ID</th><th>إجراءات</th></tr></thead>
     <tbody>
     {% for d in drivers %}
         <tr>
             <td>{{ d.name }}</td><td>{{ d.phone }}</td><td>{{ d.balance }}</td>
             <td>{{ d.monthly_orders_count }}</td><td>{{ "محظور" if d.is_blocked else "نشط" }}</td>
-            <td class="d-flex gap-1">
+            <td>{{ d.telegram_user_id or "—" }}</td>
+            <td class="d-flex gap-1 flex-wrap">
                 <form method="POST" action="{{ url_for('update_driver', driver_id=d.id) }}" class="d-flex gap-1">
                     <input type="hidden" name="action" value="add_balance">
                     <input type="number" name="amount" class="form-control form-control-sm" style="width:80px" placeholder="مبلغ">
@@ -25,6 +27,14 @@
                     <button class="btn btn-sm {{ 'btn-secondary' if d.is_blocked else 'btn-danger' }}">
                         {{ "فك الحظر" if d.is_blocked else "حظر" }}
                     </button>
+                </form>
+                <form method="POST" action="{{ url_for('update_driver_telegram_id', driver_id=d.id) }}" class="d-flex gap-1">
+                    <input type="text" name="telegram_user_id" class="form-control form-control-sm" style="width:120px" placeholder="Telegram ID جديد" value="{{ d.telegram_user_id or '' }}">
+                    <button class="btn btn-sm btn-info">تحديث ID</button>
+                </form>
+                <form method="POST" action="{{ url_for('set_driver_password', driver_id=d.id) }}" class="d-flex gap-1">
+                    <input type="text" name="new_password" class="form-control form-control-sm" style="width:120px" placeholder="كلمة مرور جديدة" required>
+                    <button class="btn btn-sm btn-warning">تحديث الباسورد</button>
                 </form>
             </td>
         </tr>
