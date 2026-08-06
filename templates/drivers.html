@@ -36,6 +36,9 @@
                     <input type="text" name="new_password" class="form-control form-control-sm" style="width:120px" placeholder="كلمة مرور جديدة" required>
                     <button class="btn btn-sm btn-warning">تحديث الباسورد</button>
                 </form>
+                <form method="POST" action="{{ url_for('delete_driver', driver_id=d.id) }}" onsubmit="return confirm('متأكدة إنك عايزة تحذفي المندوب {{ d.name }}؟');">
+                    <button class="btn btn-sm btn-outline-danger">حذف</button>
+                </form>
             </td>
         </tr>
     {% endfor %}

@@ -164,6 +164,19 @@ def update_driver(driver_id):
 
 
 # ============ الإعدادات ============
+@app.route("/drivers/<int:driver_id>/delete", methods=["POST"])
+@login_required
+def delete_driver(driver_id):
+    conn = get_db()
+    # نفصل المندوب عن أي طلبات قديمة بتاعته الأول عشان منكسرش القيود بين الجداول
+    conn.execute("UPDATE orders SET driver_id = NULL WHERE driver_id = ?", (driver_id,))
+    conn.execute("DELETE FROM drivers WHERE id = ?", (driver_id,))
+    conn.commit()
+    conn.close()
+    flash("تم حذف المندوب")
+    return redirect(url_for("drivers"))
+
+
 @app.route("/drivers/<int:driver_id>/set_telegram_id", methods=["POST"])
 @login_required
 def update_driver_telegram_id(driver_id):
