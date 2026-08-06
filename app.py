@@ -164,6 +164,18 @@ def update_driver(driver_id):
 
 
 # ============ الإعدادات ============
+@app.route("/drivers/<int:driver_id>/set_telegram_id", methods=["POST"])
+@login_required
+def update_driver_telegram_id(driver_id):
+    conn = get_db()
+    conn.execute("UPDATE drivers SET telegram_user_id = ? WHERE id = ?",
+                 (request.form["telegram_user_id"] or None, driver_id))
+    conn.commit()
+    conn.close()
+    flash("تم تحديث Telegram ID للمندوب")
+    return redirect(url_for("drivers"))
+
+
 @app.route("/settings", methods=["GET", "POST"])
 @login_required
 def settings():
