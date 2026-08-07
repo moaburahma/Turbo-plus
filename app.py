@@ -117,6 +117,19 @@ def orders():
     return render_template("orders.html", orders=rows, search=search)
 
 
+@app.route("/orders/<int:order_id>/delete", methods=["POST"])
+@login_required
+def delete_order(order_id):
+    conn = get_db()
+    # نفصل أي شكاوى مرتبطة بالطلب ده الأول عشان الحذف ميعملش مشكلة في القيود بين الجداول
+    conn.execute("UPDATE complaints SET order_id = NULL WHERE order_id = ?", (order_id,))
+    conn.execute("DELETE FROM orders WHERE id = ?", (order_id,))
+    conn.commit()
+    conn.close()
+    flash("تم حذف الطلب")
+    return redirect(url_for("orders"))
+
+
 @app.route("/orders/<int:order_id>/status", methods=["POST"])
 @login_required
 def update_order_status(order_id):
@@ -321,7 +334,7 @@ def claim_order(order_code):
 @driver_login_required
 def driver_finish_order(order_code):
     import core
-    ok, msg, order, extra = core.finish_order(session["driver_id"], order_code)
+    ok, msg, order, customer, points_earned, new_points = core.finish_order(session["driver_id"], order_code)
     flash(msg if not ok else f"تم إنهاء الطلب #{order_code}")
     return redirect(url_for("driver_dashboard"))
 

@@ -22,7 +22,7 @@
             <td>{{ o.status }}</td>
             <td>{{ o.driver_name or "—" }}</td>
             <td>{{ o.details }}</td>
-            <td>
+            <td class="d-flex flex-column gap-1">
                 <form method="POST" action="{{ url_for('update_order_status', order_id=o.id) }}" class="d-flex gap-1">
                     <select name="status" class="form-select form-select-sm">
                         <option {% if o.status == 'جديد' %}selected{% endif %}>جديد</option>
@@ -32,6 +32,9 @@
                         <option {% if o.status == 'مشكو منها' %}selected{% endif %}>مشكو منها</option>
                     </select>
                     <button class="btn btn-sm btn-dark">حفظ</button>
+                </form>
+                <form method="POST" action="{{ url_for('delete_order', order_id=o.id) }}" onsubmit="return confirm('متأكدة إنك عايزة تحذفي الطلب #{{ o.order_code }}؟');">
+                    <button class="btn btn-sm btn-outline-danger w-100">حذف</button>
                 </form>
             </td>
         </tr>
