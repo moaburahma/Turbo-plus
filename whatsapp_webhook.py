@@ -14,6 +14,12 @@ PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
 GRAPH_URL = f"https://graph.facebook.com/v20.0/{PHONE_NUMBER_ID}/messages"
 
 
+def get_order_options():
+    individual_enabled = core.get_setting("individual_enabled") == "1"
+    packages_enabled = core.get_setting("packages_enabled") != "0"
+    return individual_enabled, packages_enabled
+
+
 def send_text(to, body):
     headers = {"Authorization": f"Bearer {WHATSAPP_TOKEN}", "Content-Type": "application/json"}
     payload = {"messaging_product": "whatsapp", "to": to, "type": "text", "text": {"body": body}}
@@ -55,20 +61,27 @@ def receive_message():
         message = messages[0]
         phone = message["from"]
         customer = core.get_or_create_customer(phone, "whatsapp")
-        individual_enabled = core.get_setting("individual_enabled") == "1"
+        individual_enabled, packages_enabled = get_order_options()
 
         if message["type"] == "interactive":
             button_id = message["interactive"]["button_reply"]["id"]
 
             if button_id == "start_order":
-                if individual_enabled:
+                if individual_enabled and packages_enabled:
                     core.set_customer_state(customer["id"], "awaiting_service_type")
                     send_buttons(phone, core.get_msg("choose_service_type"),
                                  [{"id": "type_individual", "title": core.get_msg("button_individual")},
                                   {"id": "type_package", "title": core.get_msg("button_package")}])
-                else:
+                elif individual_enabled:
+                    core.set_customer_state(customer["id"], "awaiting_vehicle")
+                    send_buttons(phone, core.get_msg("ask_vehicle"),
+                                 [{"id": "vehicle_car", "title": core.get_msg("button_car")},
+                                  {"id": "vehicle_moto", "title": core.get_msg("button_moto")}])
+                elif packages_enabled:
                     core.set_customer_state(customer["id"], "awaiting_description")
                     send_text(phone, core.get_msg("ask_description"))
+                else:
+                    send_text(phone, "الخدمة مش متاحة دلوقتي، حاول تاني بعدين.")
 
             elif button_id == "start_complaint":
                 core.set_customer_state(customer["id"], "awaiting_complaint_order")
@@ -119,10 +132,16 @@ def receive_message():
                 if price < core.MIN_PRICE:
                     send_text(phone, core.get_msg("price_too_low", min_price=core.MIN_PRICE))
                     return "OK", 200
+                core.set_customer_field(customer["id"], "draft_price", str(price))
+                core.set_customer_state(customer["id"], "awaiting_contact")
+                send_text(phone, "اكتب رقم تليفون أو واتساب للتواصل معاك بخصوص الطلب:")
 
+            elif state == "awaiting_contact":
+                contact_info = text_body
+                price = float(customer["draft_price"]) if customer.get("draft_price") else core.MIN_PRICE
                 order_type = "فردي" if customer["draft_vehicle"] else "طلبات"
                 order_code = core.create_order(customer["id"], order_type, customer["draft_vehicle"],
-                                                customer["draft_details"], price, "whatsapp")
+                                                customer["draft_details"], price, "whatsapp", contact_info)
                 core.set_customer_state(customer["id"], "idle")
                 core.set_customer_field(customer["id"], "draft_vehicle", None)
                 send_text(phone, core.get_msg("order_confirmed", order_code=order_code, price=price))

@@ -5,11 +5,12 @@
     <a href="{{ url_for('available_orders') }}" class="btn btn-dark btn-sm">عرض الطلبات المتاحة</a>
 </div>
 <table class="table bg-white">
-    <thead><tr><th>كود الطلب</th><th>الحالة</th><th>السعر</th><th>التفاصيل</th><th></th></tr></thead>
+    <thead><tr><th>كود الطلب</th><th>الحالة</th><th>السعر</th><th>التفاصيل</th><th>معلومات التواصل</th><th></th></tr></thead>
     <tbody>
     {% for o in orders %}
         <tr>
             <td>{{ o.order_code }}</td><td>{{ o.status }}</td><td>{{ o.price }}</td><td>{{ o.details }}</td>
+            <td>{{ o.contact_info or "—" }}</td>
             <td>
                 {% if o.status == 'قيد التوصيل' %}
                 <form method="POST" action="{{ url_for('driver_finish_order', order_code=o.order_code) }}">

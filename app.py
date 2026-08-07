@@ -104,8 +104,10 @@ def dashboard():
 def orders():
     search = request.args.get("q", "")
     conn = get_db()
-    query = """SELECT orders.*, customers.phone as customer_phone
-               FROM orders LEFT JOIN customers ON orders.customer_id = customers.id"""
+    query = """SELECT orders.*, customers.phone as customer_phone, drivers.name as driver_name
+               FROM orders
+               LEFT JOIN customers ON orders.customer_id = customers.id
+               LEFT JOIN drivers ON orders.driver_id = drivers.id"""
     if search:
         rows = conn.execute(query + " WHERE CAST(orders.order_code AS TEXT) LIKE ? ORDER BY orders.id DESC",
                              (f"%{search}%",)).fetchall()
@@ -199,7 +201,13 @@ def settings():
             conn.execute("UPDATE settings SET value = ? WHERE key = 'commission_percent'", (request.form["commission_percent"],))
             conn.execute("UPDATE settings SET value = ? WHERE key = 'points_per_order'", (request.form["points_per_order"],))
             individual = "1" if request.form.get("individual_enabled") == "on" else "0"
-            conn.execute("UPDATE settings SET value = ? WHERE key = 'individual_enabled'", (individual,))
+            packages = "1" if request.form.get("packages_enabled") == "on" else "0"
+            conn.execute(
+                "INSERT INTO settings (key, value) VALUES ('individual_enabled', ?) "
+                "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", (individual,))
+            conn.execute(
+                "INSERT INTO settings (key, value) VALUES ('packages_enabled', ?) "
+                "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", (packages,))
             conn.commit()
             flash("تم حفظ الإعدادات")
 
@@ -217,9 +225,13 @@ def settings():
 
     commission = conn.execute("SELECT value FROM settings WHERE key='commission_percent'").fetchone()["value"]
     points = conn.execute("SELECT value FROM settings WHERE key='points_per_order'").fetchone()["value"]
-    individual_enabled = conn.execute("SELECT value FROM settings WHERE key='individual_enabled'").fetchone()["value"]
+    individual_row = conn.execute("SELECT value FROM settings WHERE key='individual_enabled'").fetchone()
+    packages_row = conn.execute("SELECT value FROM settings WHERE key='packages_enabled'").fetchone()
+    individual_enabled = individual_row["value"] if individual_row else "0"
+    packages_enabled = packages_row["value"] if packages_row else "1"
     conn.close()
-    return render_template("settings.html", commission=commission, points=points, individual_enabled=individual_enabled)
+    return render_template("settings.html", commission=commission, points=points,
+                           individual_enabled=individual_enabled, packages_enabled=packages_enabled)
 
 # ============ نصوص البوت ============
 @app.route("/messages")

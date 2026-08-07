@@ -6,11 +6,21 @@
     <input class="form-control mb-3" name="commission_percent" value="{{ commission }}">
     <label class="form-label">قيمة النقطة لكل طلب</label>
     <input class="form-control mb-3" name="points_per_order" value="{{ points }}">
-    <div class="form-check mb-3">
+
+    <div class="form-check mb-2">
         <input class="form-check-input" type="checkbox" name="individual_enabled" id="ie"
                {% if individual_enabled == '1' %}checked{% endif %}>
         <label class="form-check-label" for="ie">تفعيل خيار "توصيل أفراد" للعملاء</label>
     </div>
+    <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" name="packages_enabled" id="pe"
+               {% if packages_enabled == '1' %}checked{% endif %}>
+        <label class="form-check-label" for="pe">تفعيل خيار "طلبات" للعملاء</label>
+    </div>
+    <div class="alert alert-info py-2" style="font-size: 0.9rem;">
+        لو الاتنين مفعّلين، العميل هيختار بينهم. لو واحد بس مفعّل، هيدخل عليه مباشرة من غير ما يختار. لو الاتنين متعطّلين، الخدمة هتبقى غير متاحة مؤقتًا.
+    </div>
+
     <button class="btn btn-dark">حفظ</button>
 </form>
 

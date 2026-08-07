@@ -78,6 +78,20 @@ def send_message_to_customer(customer, text):
         requests.post(f"https://graph.facebook.com/v20.0/{PHONE_NUMBER_ID}/messages", headers=headers, json=payload)
 
 
+def send_telegram_private_message(telegram_user_id, text):
+    """بيبعت رسالة خاصة (Direct Message) لمستخدم تليجرام معيّن عن طريق الـ user id بتاعه.
+    بنستخدمها عشان نبعت معلومات التواصل الخاصة بالعميل للمندوب اللي قبل الطلب بس، من غير ما تظهر في الجروب."""
+    if not telegram_user_id:
+        return
+    try:
+        requests.post(
+            f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+            json={"chat_id": telegram_user_id, "text": text}
+        )
+    except Exception as e:
+        print("فشل إرسال رسالة خاصة للمندوب:", e)
+
+
 def get_telegram_driver_groups():
     conn = get_db()
     rows = conn.execute("SELECT * FROM telegram_groups WHERE role = 'drivers'").fetchall()
@@ -161,13 +175,13 @@ def get_driver_by_id(driver_id):
     return driver
 
 
-def create_order(customer_id, order_type, vehicle_type, description, price, source):
+def create_order(customer_id, order_type, vehicle_type, description, price, source, contact_info=None):
     conn = get_db()
     last = conn.execute("SELECT MAX(order_code) as m FROM orders").fetchone()
     next_code = 1000 if last["m"] is None else last["m"] + 1
     conn.execute(
-        "INSERT INTO orders (order_code, customer_id, status, details, price, order_type, vehicle_type, source) VALUES (?, ?, 'جديد', ?, ?, ?, ?, ?)",
-        (next_code, customer_id, description, price, order_type, vehicle_type, source)
+        "INSERT INTO orders (order_code, customer_id, status, details, price, order_type, vehicle_type, source, contact_info) VALUES (?, ?, 'جديد', ?, ?, ?, ?, ?, ?)",
+        (next_code, customer_id, description, price, order_type, vehicle_type, source, contact_info)
     )
     conn.commit()
     conn.close()
