@@ -4,6 +4,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from functools import wraps
 from werkzeug.security import check_password_hash, generate_password_hash
+from datetime import datetime, timedelta
 from whatsapp_webhook import whatsapp_bp
 
 app = Flask(__name__)
@@ -144,10 +145,36 @@ def update_order_status(order_id):
 @app.route("/drivers")
 @login_required
 def drivers():
+    search = request.args.get("q", "")
+    min_orders = request.args.get("min_orders", "")
+    period = request.args.get("period", "all")
+    specific_month = request.args.get("specific_month", "")
+    start, end, period = compute_period_range(period, specific_month)
+
     conn = get_db()
-    rows = conn.execute("SELECT * FROM drivers ORDER BY id DESC").fetchall()
+    query = """
+        SELECT drivers.*,
+               COUNT(orders.id) FILTER (WHERE orders.status = 'مكتملة' AND orders.finished_at >= ? AND orders.finished_at < ?) as period_order_count
+        FROM drivers
+        LEFT JOIN orders ON orders.driver_id = drivers.id
+        WHERE 1=1
+    """
+    params = [start, end]
+    if search:
+        query += " AND (drivers.name ILIKE ? OR drivers.phone ILIKE ?)"
+        params += [f"%{search}%", f"%{search}%"]
+    query += " GROUP BY drivers.id"
+    if min_orders:
+        try:
+            query += " HAVING COUNT(orders.id) FILTER (WHERE orders.status = 'مكتملة' AND orders.finished_at >= ? AND orders.finished_at < ?) >= ?"
+            params += [start, end, int(min_orders)]
+        except ValueError:
+            pass
+    query += " ORDER BY drivers.id DESC"
+    rows = conn.execute(query, tuple(params)).fetchall()
     conn.close()
-    return render_template("drivers.html", drivers=rows)
+    return render_template("drivers.html", drivers=rows, search=search, min_orders=min_orders,
+                           period=period, specific_month=specific_month)
 
 
 @app.route("/drivers/add", methods=["POST"])
@@ -221,8 +248,42 @@ def settings():
             conn.execute(
                 "INSERT INTO settings (key, value) VALUES ('packages_enabled', ?) "
                 "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", (packages,))
+            conn.execute(
+                "INSERT INTO settings (key, value) VALUES ('min_price_individual', ?) "
+                "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", (request.form.get("min_price_individual", "25"),))
+            conn.execute(
+                "INSERT INTO settings (key, value) VALUES ('min_price_packages', ?) "
+                "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", (request.form.get("min_price_packages", "25"),))
+            conn.execute(
+                "INSERT INTO settings (key, value) VALUES ('driver_accept_cooldown_minutes', ?) "
+                "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", (request.form.get("driver_accept_cooldown_minutes", "0"),))
+            conn.execute(
+                "INSERT INTO settings (key, value) VALUES ('order_auto_cancel_minutes', ?) "
+                "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", (request.form.get("order_auto_cancel_minutes", "0"),))
+            reward_keys = [
+                "reward_customer_daily_threshold", "reward_customer_daily_points",
+                "reward_customer_weekly_threshold", "reward_customer_weekly_points",
+                "reward_customer_monthly_threshold", "reward_customer_monthly_points",
+                "reward_driver_daily_threshold", "reward_driver_daily_amount",
+                "reward_driver_weekly_threshold", "reward_driver_weekly_amount",
+                "reward_driver_monthly_threshold", "reward_driver_monthly_amount",
+            ]
+            for key in reward_keys:
+                conn.execute(
+                    "INSERT INTO settings (key, value) VALUES (?, ?) "
+                    "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+                    (key, request.form.get(key, "0"))
+                )
             conn.commit()
             flash("تم حفظ الإعدادات")
+
+        elif "wallet_amount" in request.form:
+            amount = float(request.form["wallet_amount"])
+            action = request.form.get("wallet_action", "add")
+            delta = amount if action == "add" else -amount
+            conn.execute("UPDATE admin_wallet SET balance = ROUND((balance + ?)::numeric, 2) WHERE id = 1", (delta,))
+            conn.commit()
+            flash("تم تحديث رصيد الشركة")
 
         elif "new_username" in request.form:
             admin = conn.execute("SELECT * FROM admin_users WHERE id = ?", (session["admin_id"],)).fetchone()
@@ -236,15 +297,37 @@ def settings():
             else:
                 flash("كلمة المرور الحالية غلط")
 
-    commission = conn.execute("SELECT value FROM settings WHERE key='commission_percent'").fetchone()["value"]
-    points = conn.execute("SELECT value FROM settings WHERE key='points_per_order'").fetchone()["value"]
-    individual_row = conn.execute("SELECT value FROM settings WHERE key='individual_enabled'").fetchone()
-    packages_row = conn.execute("SELECT value FROM settings WHERE key='packages_enabled'").fetchone()
-    individual_enabled = individual_row["value"] if individual_row else "0"
-    packages_enabled = packages_row["value"] if packages_row else "1"
+    def setting_value(key, default):
+        row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        return row["value"] if row else default
+
+    commission = setting_value("commission_percent", "10")
+    points = setting_value("points_per_order", "1")
+    individual_enabled = setting_value("individual_enabled", "0")
+    packages_enabled = setting_value("packages_enabled", "1")
+    min_price_individual = setting_value("min_price_individual", "25")
+    min_price_packages = setting_value("min_price_packages", "25")
+    driver_accept_cooldown_minutes = setting_value("driver_accept_cooldown_minutes", "0")
+    order_auto_cancel_minutes = setting_value("order_auto_cancel_minutes", "0")
+    reward_values = {key: setting_value(key, "0") for key in [
+        "reward_customer_daily_threshold", "reward_customer_daily_points",
+        "reward_customer_weekly_threshold", "reward_customer_weekly_points",
+        "reward_customer_monthly_threshold", "reward_customer_monthly_points",
+        "reward_driver_daily_threshold", "reward_driver_daily_amount",
+        "reward_driver_weekly_threshold", "reward_driver_weekly_amount",
+        "reward_driver_monthly_threshold", "reward_driver_monthly_amount",
+    ]}
+    wallet_row = conn.execute("SELECT balance FROM admin_wallet WHERE id = 1").fetchone()
+    wallet_balance = round(wallet_row["balance"], 2) if wallet_row else 0
     conn.close()
-    return render_template("settings.html", commission=commission, points=points,
-                           individual_enabled=individual_enabled, packages_enabled=packages_enabled)
+    return render_template(
+        "settings.html", commission=commission, points=points,
+        individual_enabled=individual_enabled, packages_enabled=packages_enabled,
+        min_price_individual=min_price_individual, min_price_packages=min_price_packages,
+        driver_accept_cooldown_minutes=driver_accept_cooldown_minutes, wallet_balance=wallet_balance,
+        order_auto_cancel_minutes=order_auto_cancel_minutes,
+        reward=reward_values
+    )
 
 # ============ نصوص البوت ============
 @app.route("/messages")
@@ -308,13 +391,21 @@ def driver_dashboard():
     conn = get_db()
     driver = conn.execute("SELECT * FROM drivers WHERE id = ?", (session["driver_id"],)).fetchone()
     my_orders = conn.execute("SELECT * FROM orders WHERE driver_id = ? ORDER BY id DESC", (driver["id"],)).fetchall()
+    available = conn.execute("SELECT * FROM orders WHERE status = 'جديد' ORDER BY id DESC").fetchall()
     conn.close()
-    return render_template("driver_dashboard.html", driver=driver, orders=my_orders)
+    return render_template("driver_dashboard.html", driver=driver, orders=my_orders, available_orders=available)
 
 
 @app.route("/available-orders")
 @driver_login_required
 def available_orders():
+    # الصفحة القديمة اتدمجت في لوحة المندوب نفسها عشان مايلخبطش، بنوجّهه هناك تلقائيًا
+    return redirect(url_for("driver_dashboard"))
+
+
+@app.route("/available-orders-old")
+@driver_login_required
+def available_orders_old():
     conn = get_db()
     rows = conn.execute("SELECT * FROM orders WHERE status = 'جديد' ORDER BY id DESC").fetchall()
     conn.close()
@@ -383,13 +474,150 @@ def delete_telegram_group(group_id):
     conn.close()
     return redirect(url_for("telegram_groups"))
 
+def compute_period_range(period, specific_month=""):
+    """بيرجع (start, end, period) كنصوص تاريخ جاهزة للمقارنة مع أعمدة created_at النصية."""
+    now = datetime.now()
+    if period == "day":
+        start = now.strftime("%Y-%m-%d 00:00:00")
+        end = (now + timedelta(days=1)).strftime("%Y-%m-%d 00:00:00")
+    elif period == "week":
+        start = (now - timedelta(days=7)).strftime("%Y-%m-%d 00:00:00")
+        end = (now + timedelta(days=1)).strftime("%Y-%m-%d 00:00:00")
+    elif period == "year":
+        start = now.strftime("%Y-01-01 00:00:00")
+        end = (now.replace(year=now.year + 1)).strftime("%Y-01-01 00:00:00")
+    elif period == "specific_month" and specific_month:
+        try:
+            year, month = specific_month.split("-")
+            year, month = int(year), int(month)
+            start = f"{year:04d}-{month:02d}-01 00:00:00"
+            if month == 12:
+                end = f"{year + 1:04d}-01-01 00:00:00"
+            else:
+                end = f"{year:04d}-{month + 1:02d}-01 00:00:00"
+        except (ValueError, IndexError):
+            period = "month"
+            start = now.strftime("%Y-%m-01 00:00:00")
+            end = (now + timedelta(days=1)).strftime("%Y-%m-%d 00:00:00")
+    elif period == "all":
+        start = "1970-01-01 00:00:00"
+        end = "9999-12-31 00:00:00"
+    else:
+        period = "month"
+        start = now.strftime("%Y-%m-01 00:00:00")
+        end = (now + timedelta(days=1)).strftime("%Y-%m-%d 00:00:00")
+    return start, end, period
+
+
+@app.route("/reports")
+@login_required
+def reports():
+    target = request.args.get("target", "drivers")  # drivers أو customers
+    period = request.args.get("period", "month")  # day / week / month / year / specific_month
+    specific_month = request.args.get("specific_month", "")  # شكلها YYYY-MM
+    search = request.args.get("q", "")
+    min_orders = request.args.get("min_orders", "")
+
+    start, end, period = compute_period_range(period, specific_month)
+
+    conn = get_db()
+    params = [start, end]
+
+    if target == "customers":
+        query = """
+            SELECT customers.id, customers.phone, customers.points,
+                   COUNT(orders.id) as order_count,
+                   COALESCE(SUM(orders.price), 0) as total_price
+            FROM customers
+            LEFT JOIN orders ON orders.customer_id = customers.id
+                AND orders.created_at >= ? AND orders.created_at < ?
+            WHERE 1=1
+        """
+        if search:
+            query += " AND customers.phone ILIKE ?"
+            params.append(f"%{search}%")
+        query += " GROUP BY customers.id"
+        if min_orders:
+            try:
+                query += " HAVING COUNT(orders.id) >= ?"
+                params.append(int(min_orders))
+            except ValueError:
+                pass
+        query += " ORDER BY order_count DESC, total_price DESC"
+    else:
+        target = "drivers"
+        query = """
+            SELECT drivers.id, drivers.name, drivers.phone, drivers.balance,
+                   COUNT(orders.id) as order_count,
+                   COALESCE(SUM(orders.price), 0) as total_price
+            FROM drivers
+            LEFT JOIN orders ON orders.driver_id = drivers.id
+                AND orders.created_at >= ? AND orders.created_at < ?
+                AND orders.status = 'مكتملة'
+            WHERE 1=1
+        """
+        if search:
+            query += " AND (drivers.name ILIKE ? OR drivers.phone ILIKE ?)"
+            params += [f"%{search}%", f"%{search}%"]
+        query += " GROUP BY drivers.id"
+        if min_orders:
+            try:
+                query += " HAVING COUNT(orders.id) >= ?"
+                params.append(int(min_orders))
+            except ValueError:
+                pass
+        query += " ORDER BY order_count DESC, total_price DESC"
+
+    rows = conn.execute(query, tuple(params)).fetchall()
+    conn.close()
+    return render_template("reports.html", rows=rows, target=target, period=period,
+                           specific_month=specific_month, search=search, min_orders=min_orders)
+
+
 @app.route("/customers")
 @login_required
 def customers():
+    search = request.args.get("q", "")
+    min_orders = request.args.get("min_orders", "")
+    period = request.args.get("period", "all")
+    specific_month = request.args.get("specific_month", "")
+    start, end, period = compute_period_range(period, specific_month)
+
     conn = get_db()
-    rows = conn.execute("SELECT * FROM customers ORDER BY id DESC").fetchall()
+    query = """SELECT customers.*,
+                      COUNT(orders.id) FILTER (WHERE orders.created_at >= ? AND orders.created_at < ?) as order_count
+               FROM customers LEFT JOIN orders ON orders.customer_id = customers.id
+               WHERE 1=1"""
+    params = [start, end]
+    if search:
+        query += " AND customers.phone ILIKE ?"
+        params.append(f"%{search}%")
+    query += " GROUP BY customers.id"
+    if min_orders:
+        try:
+            query += " HAVING COUNT(orders.id) FILTER (WHERE orders.created_at >= ? AND orders.created_at < ?) >= ?"
+            params += [start, end, int(min_orders)]
+        except ValueError:
+            pass
+    query += " ORDER BY customers.id DESC"
+    rows = conn.execute(query, tuple(params)).fetchall()
     conn.close()
-    return render_template("customers.html", customers=rows)
+    return render_template("customers.html", customers=rows, search=search, min_orders=min_orders,
+                           period=period, specific_month=specific_month)
+
+
+@app.route("/customers/<int:customer_id>/delete", methods=["POST"])
+@login_required
+def delete_customer(customer_id):
+    conn = get_db()
+    # نحذف الشكاوى والطلبات المرتبطة بالعميل الأول عشان الحذف ميعملش مشكلة في القيود بين الجداول
+    conn.execute("DELETE FROM complaints WHERE customer_id = ?", (customer_id,))
+    conn.execute("DELETE FROM orders WHERE customer_id = ?", (customer_id,))
+    conn.execute("DELETE FROM customers WHERE id = ?", (customer_id,))
+    conn.commit()
+    conn.close()
+    flash("تم حذف العميل وكل طلباته")
+    return redirect(url_for("customers"))
 
 
 @app.route("/customers/<int:customer_id>/add_points", methods=["POST"])

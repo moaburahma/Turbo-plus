@@ -1,9 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h5 class="mb-0">طلباتي</h5>
-    <a href="{{ url_for('available_orders') }}" class="btn btn-dark btn-sm">عرض الطلبات المتاحة</a>
+
+<div class="mb-2">
+    <span class="badge bg-dark">رصيدك الحالي: {{ driver.balance }} ج</span>
 </div>
+
+<h5 class="mt-4 mb-2">1) طلباتي الحالية</h5>
+<p class="text-muted" style="font-size:0.9rem;">الطلبات اللي إنت أخدتها بنفسك، وتقدر تشوف تفاصيلها ومعلومات التواصل بتاعتها هنا دايمًا.</p>
 <table class="table bg-white">
     <thead><tr><th>كود الطلب</th><th>الحالة</th><th>السعر</th><th>التفاصيل</th><th>معلومات التواصل</th><th></th></tr></thead>
     <tbody>
@@ -19,6 +22,30 @@
                 {% endif %}
             </td>
         </tr>
+    {% else %}
+        <tr><td colspan="6" class="text-center text-muted">لسه معندكش أي طلبات</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<hr class="my-4">
+
+<h5 class="mb-2">2) الطلبات المتاحة (لسه محدش أخدها)</h5>
+<p class="text-muted" style="font-size:0.9rem;">دوسي "قبول الطلب" عشان تضيفيه لقسم "طلباتي الحالية" فوق، ومعلومات التواصل هتظهرلك هناك.</p>
+<table class="table bg-white">
+    <thead><tr><th>الكود</th><th>النوع</th><th>السعر</th><th>التفاصيل</th><th></th></tr></thead>
+    <tbody>
+    {% for o in available_orders %}
+        <tr>
+            <td>{{ o.order_code }}</td><td>{{ o.order_type }}</td><td>{{ o.price }}</td><td>{{ o.details }}</td>
+            <td>
+                <form method="POST" action="{{ url_for('claim_order', order_code=o.order_code) }}">
+                    <button class="btn btn-sm btn-success">قبول الطلب</button>
+                </form>
+            </td>
+        </tr>
+    {% else %}
+        <tr><td colspan="5" class="text-center text-muted">مفيش طلبات متاحة دلوقتي</td></tr>
     {% endfor %}
     </tbody>
 </table>
