@@ -1,20 +1,58 @@
 {% extends "base.html" %}
 {% block content %}
 <h3 class="mb-4">العملاء والنقاط</h3>
-{% with messages = get_flashed_messages() %}{% if messages %}<div class="alert alert-success">{{ messages[0] }}</div>{% endif %}{% endwith %}
+
+<form method="GET" class="row g-2 mb-4 align-items-end">
+    <div class="col-auto">
+        <label class="form-label mb-1">بحث برقم الهاتف</label>
+        <input class="form-control form-control-sm" name="q" value="{{ search }}" placeholder="رقم الهاتف">
+    </div>
+    <div class="col-auto">
+        <label class="form-label mb-1">الفترة (لعدد الطلبات)</label>
+        <select name="period" class="form-select form-select-sm">
+            <option value="all" {% if period == 'all' %}selected{% endif %}>كل الوقت</option>
+            <option value="day" {% if period == 'day' %}selected{% endif %}>اليوم</option>
+            <option value="week" {% if period == 'week' %}selected{% endif %}>آخر 7 أيام</option>
+            <option value="month" {% if period == 'month' %}selected{% endif %}>الشهر الحالي</option>
+            <option value="year" {% if period == 'year' %}selected{% endif %}>السنة الحالية</option>
+            <option value="specific_month" {% if period == 'specific_month' %}selected{% endif %}>شهر معيّن</option>
+        </select>
+    </div>
+    <div class="col-auto">
+        <label class="form-label mb-1">اختاري الشهر</label>
+        <input type="month" name="specific_month" class="form-control form-control-sm" value="{{ specific_month }}">
+    </div>
+    <div class="col-auto">
+        <label class="form-label mb-1">عدد طلبات ≥</label>
+        <input type="number" name="min_orders" class="form-control form-control-sm" style="width:100px" value="{{ min_orders }}">
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-dark btn-sm">فلترة</button>
+    </div>
+</form>
+
 <table class="table bg-white">
-    <thead><tr><th>الرقم</th><th>النقاط الحالية</th><th>إضافة نقاط</th></tr></thead>
+    <thead><tr><th>الرقم</th><th>النقاط</th><th>عدد الطلبات في الفترة</th><th>إضافة نقاط</th><th></th></tr></thead>
     <tbody>
     {% for c in customers %}
         <tr>
-            <td>{{ c.phone }}</td><td>{{ c.points }}</td>
+            <td>{{ c.phone }}</td>
+            <td>{{ "%.2f"|format(c.points) }}</td>
+            <td>{{ c.order_count }}</td>
             <td>
                 <form method="POST" action="{{ url_for('add_customer_points', customer_id=c.id) }}" class="d-flex gap-1">
-                    <input type="number" step="0.5" name="points" class="form-control form-control-sm" style="width:100px" placeholder="عدد">
-                    <button class="btn btn-sm btn-success">إضافة وإبلاغ العميل</button>
+                    <input type="number" step="0.01" name="points" class="form-control form-control-sm" style="width:90px" placeholder="نقاط" required>
+                    <button class="btn btn-sm btn-success">إضافة</button>
+                </form>
+            </td>
+            <td>
+                <form method="POST" action="{{ url_for('delete_customer', customer_id=c.id) }}" onsubmit="return confirm('متأكدة إنك عايزة تحذفي العميل {{ c.phone }}؟ هيتم حذف كل طلباته وشكاويه كمان.');">
+                    <button class="btn btn-sm btn-outline-danger">حذف</button>
                 </form>
             </td>
         </tr>
+    {% else %}
+        <tr><td colspan="5" class="text-center text-muted">مفيش نتائج</td></tr>
     {% endfor %}
     </tbody>
 </table>

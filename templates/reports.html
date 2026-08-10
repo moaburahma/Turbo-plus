@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-4">التقارير</h3>
+
+<form method="GET" class="row g-2 mb-4 align-items-end">
+    <div class="col-auto">
+        <label class="form-label mb-1">النوع</label>
+        <select name="target" class="form-select form-select-sm">
+            <option value="drivers" {% if target == 'drivers' %}selected{% endif %}>المناديب</option>
+            <option value="customers" {% if target == 'customers' %}selected{% endif %}>العملاء</option>
+        </select>
+    </div>
+    <div class="col-auto">
+        <label class="form-label mb-1">الفترة</label>
+        <select name="period" class="form-select form-select-sm">
+            <option value="day" {% if period == 'day' %}selected{% endif %}>يومي (اليوم)</option>
+            <option value="week" {% if period == 'week' %}selected{% endif %}>أسبوعي (آخر 7 أيام)</option>
+            <option value="month" {% if period == 'month' %}selected{% endif %}>شهري (الشهر الحالي)</option>
+            <option value="year" {% if period == 'year' %}selected{% endif %}>سنوي (السنة الحالية)</option>
+            <option value="specific_month" {% if period == 'specific_month' %}selected{% endif %}>شهر معيّن</option>
+        </select>
+    </div>
+    <div class="col-auto">
+        <label class="form-label mb-1">اختاري الشهر (لو "شهر معيّن")</label>
+        <input type="month" name="specific_month" class="form-control form-control-sm" value="{{ specific_month }}">
+    </div>
+    <div class="col-auto">
+        <label class="form-label mb-1">بحث بالاسم / الرقم</label>
+        <input type="text" name="q" class="form-control form-control-sm" value="{{ search }}" placeholder="اسم أو رقم هاتف">
+    </div>
+    <div class="col-auto">
+        <label class="form-label mb-1">عدد طلبات ≥</label>
+        <input type="number" name="min_orders" class="form-control form-control-sm" style="width:100px" value="{{ min_orders }}" placeholder="مثلًا 10">
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-dark btn-sm">فلترة</button>
+    </div>
+</form>
+
+{% if target == 'drivers' %}
+<table class="table bg-white">
+    <thead><tr><th>الاسم</th><th>الرقم</th><th>عدد الطلبات المكتملة في الفترة</th><th>إجمالي قيمة الطلبات</th><th>الرصيد الحالي</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+        <tr>
+            <td>{{ r.name }}</td>
+            <td>{{ r.phone }}</td>
+            <td>{{ r.order_count }}</td>
+            <td>{{ r.total_price }}</td>
+            <td>{{ r.balance }}</td>
+        </tr>
+    {% else %}
+        <tr><td colspan="5" class="text-center text-muted">مفيش بيانات في الفترة دي</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<table class="table bg-white">
+    <thead><tr><th>الرقم</th><th>عدد الطلبات في الفترة</th><th>إجمالي المدفوع</th><th>النقاط الحالية</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+        <tr>
+            <td>{{ r.phone }}</td>
+            <td>{{ r.order_count }}</td>
+            <td>{{ r.total_price }}</td>
+            <td>{{ r.points }}</td>
+        </tr>
+    {% else %}
+        <tr><td colspan="4" class="text-center text-muted">مفيش بيانات في الفترة دي</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endblock %}

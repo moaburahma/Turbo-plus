@@ -21,7 +21,77 @@
         لو الاتنين مفعّلين، العميل هيختار بينهم. لو واحد بس مفعّل، هيدخل عليه مباشرة من غير ما يختار. لو الاتنين متعطّلين، الخدمة هتبقى غير متاحة مؤقتًا.
     </div>
 
+    <label class="form-label">الحد الأدنى لسعر طلبات "الأفراد" (جنيه)</label>
+    <input class="form-control mb-3" name="min_price_individual" value="{{ min_price_individual }}">
+    <label class="form-label">الحد الأدنى لسعر "الطلبات" (جنيه)</label>
+    <input class="form-control mb-3" name="min_price_packages" value="{{ min_price_packages }}">
+
+    <label class="form-label">أقل فترة زمنية (بالدقايق) لازم تعدي قبل ما المندوب يقبل طلب تاني</label>
+    <input class="form-control mb-3" name="driver_accept_cooldown_minutes" value="{{ driver_accept_cooldown_minutes }}">
+    <div class="alert alert-info py-2" style="font-size: 0.9rem;">
+        اكتبي 0 لو عايزة تعطّلي الميزة دي خالص (يعني المندوب يقدر يقبل طلبات على طول من غير أي انتظار).
+    </div>
+
+    <label class="form-label">إلغاء الطلب تلقائيًا لو محدش قبله بعد كام دقيقة</label>
+    <input class="form-control mb-3" name="order_auto_cancel_minutes" value="{{ order_auto_cancel_minutes }}">
+    <div class="alert alert-info py-2" style="font-size: 0.9rem;">
+        اكتبي 0 لو عايزة تعطّلي الميزة دي خالص. العميل هيوصله رسالة إلغاء تلقائي لو حصل.
+    </div>
+
     <button class="btn btn-dark">حفظ</button>
+</form>
+
+<hr class="my-4">
+<h5>نظام المكافآت التلقائي</h5>
+<p class="text-muted" style="font-size:0.9rem;">
+    اكتبي "عدد الطلبات المطلوب" و"المكافأة"؛ اكتبي 0 في الاتنين لو عايزة تعطّلي مكافأة الفترة دي.
+    المكافأة بتنزل تلقائيًا أول ما العميل/المندوب يوصل للعدد المطلوب، مرة واحدة بس لكل فترة.
+</p>
+<form method="POST" style="max-width:500px;">
+    <h6 class="mt-3">مكافآت العملاء (نقاط)</h6>
+    <div class="row g-2 mb-2">
+        <div class="col">يومي: عدد الطلبات <input class="form-control form-control-sm" name="reward_customer_daily_threshold" value="{{ reward.reward_customer_daily_threshold }}"></div>
+        <div class="col">المكافأة (نقاط) <input class="form-control form-control-sm" name="reward_customer_daily_points" value="{{ reward.reward_customer_daily_points }}"></div>
+    </div>
+    <div class="row g-2 mb-2">
+        <div class="col">أسبوعي: عدد الطلبات <input class="form-control form-control-sm" name="reward_customer_weekly_threshold" value="{{ reward.reward_customer_weekly_threshold }}"></div>
+        <div class="col">المكافأة (نقاط) <input class="form-control form-control-sm" name="reward_customer_weekly_points" value="{{ reward.reward_customer_weekly_points }}"></div>
+    </div>
+    <div class="row g-2 mb-3">
+        <div class="col">شهري: عدد الطلبات <input class="form-control form-control-sm" name="reward_customer_monthly_threshold" value="{{ reward.reward_customer_monthly_threshold }}"></div>
+        <div class="col">المكافأة (نقاط) <input class="form-control form-control-sm" name="reward_customer_monthly_points" value="{{ reward.reward_customer_monthly_points }}"></div>
+    </div>
+
+    <h6 class="mt-3">مكافآت المناديب (رصيد فلوس)</h6>
+    <div class="row g-2 mb-2">
+        <div class="col">يومي: عدد الطلبات <input class="form-control form-control-sm" name="reward_driver_daily_threshold" value="{{ reward.reward_driver_daily_threshold }}"></div>
+        <div class="col">المكافأة (جنيه) <input class="form-control form-control-sm" name="reward_driver_daily_amount" value="{{ reward.reward_driver_daily_amount }}"></div>
+    </div>
+    <div class="row g-2 mb-2">
+        <div class="col">أسبوعي: عدد الطلبات <input class="form-control form-control-sm" name="reward_driver_weekly_threshold" value="{{ reward.reward_driver_weekly_threshold }}"></div>
+        <div class="col">المكافأة (جنيه) <input class="form-control form-control-sm" name="reward_driver_weekly_amount" value="{{ reward.reward_driver_weekly_amount }}"></div>
+    </div>
+    <div class="row g-2 mb-3">
+        <div class="col">شهري: عدد الطلبات <input class="form-control form-control-sm" name="reward_driver_monthly_threshold" value="{{ reward.reward_driver_monthly_threshold }}"></div>
+        <div class="col">المكافأة (جنيه) <input class="form-control form-control-sm" name="reward_driver_monthly_amount" value="{{ reward.reward_driver_monthly_amount }}"></div>
+    </div>
+    <button class="btn btn-dark">حفظ إعدادات المكافآت</button>
+</form>
+
+<hr class="my-4">
+<h5>رصيد الشركة (المحفظة)</h5>
+<p class="mb-2">الرصيد الحالي: <b>{{ "%.2f"|format(wallet_balance) }} ج</b></p>
+<p class="text-muted" style="font-size:0.9rem;">
+    الرقم ده هو صافي عمولتك المتجمّعة من كل الطلبات اللي اتقبلت (بتضاف تلقائيًا نسبة العمولة من سعر كل طلب أول ما مندوب يقبله).
+    تقدري كمان تضيفي أو تخصمي مبلغ يدوي هنا (مثلًا لو سحبتي فلوس أو حبيتي تصححي رصيد).
+</p>
+<form method="POST" class="d-flex gap-2 mb-4" style="max-width:400px;">
+    <select name="wallet_action" class="form-select">
+        <option value="add">إضافة</option>
+        <option value="subtract">خصم</option>
+    </select>
+    <input class="form-control" type="number" step="0.01" name="wallet_amount" placeholder="المبلغ" required>
+    <button class="btn btn-dark">تنفيذ</button>
 </form>
 
 <hr class="my-4">

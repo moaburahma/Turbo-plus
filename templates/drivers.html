@@ -1,6 +1,36 @@
 {% extends "base.html" %}
 {% block content %}
 <h3 class="mb-4">المناديب</h3>
+
+<form method="GET" class="row g-2 mb-3 align-items-end">
+    <div class="col-auto">
+        <label class="form-label mb-1">بحث بالاسم/الرقم</label>
+        <input class="form-control form-control-sm" name="q" value="{{ search }}" placeholder="اسم أو رقم هاتف">
+    </div>
+    <div class="col-auto">
+        <label class="form-label mb-1">الفترة (لعدد الطلبات المكتملة)</label>
+        <select name="period" class="form-select form-select-sm">
+            <option value="all" {% if period == 'all' %}selected{% endif %}>كل الوقت</option>
+            <option value="day" {% if period == 'day' %}selected{% endif %}>اليوم</option>
+            <option value="week" {% if period == 'week' %}selected{% endif %}>آخر 7 أيام</option>
+            <option value="month" {% if period == 'month' %}selected{% endif %}>الشهر الحالي</option>
+            <option value="year" {% if period == 'year' %}selected{% endif %}>السنة الحالية</option>
+            <option value="specific_month" {% if period == 'specific_month' %}selected{% endif %}>شهر معيّن</option>
+        </select>
+    </div>
+    <div class="col-auto">
+        <label class="form-label mb-1">اختاري الشهر</label>
+        <input type="month" name="specific_month" class="form-control form-control-sm" value="{{ specific_month }}">
+    </div>
+    <div class="col-auto">
+        <label class="form-label mb-1">عدد طلبات ≥</label>
+        <input type="number" name="min_orders" class="form-control form-control-sm" style="width:100px" value="{{ min_orders }}">
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-dark btn-sm">فلترة</button>
+    </div>
+</form>
+
 <form method="POST" action="{{ url_for('add_driver') }}" class="d-flex gap-2 mb-4">
     <input class="form-control" name="name" placeholder="اسم المندوب" required>
     <input class="form-control" name="phone" placeholder="رقم الهاتف (201xxxxxxxxx)" required>
@@ -9,12 +39,12 @@
     <button class="btn btn-dark">إضافة مندوب</button>
 </form>
 <table class="table bg-white">
-    <thead><tr><th>الاسم</th><th>الرقم</th><th>الرصيد</th><th>عدد الطلبات الشهري</th><th>الحالة</th><th>Telegram ID</th><th>إجراءات</th></tr></thead>
+    <thead><tr><th>الاسم</th><th>الرقم</th><th>الرصيد</th><th>عدد الطلبات في الفترة</th><th>الحالة</th><th>Telegram ID</th><th>إجراءات</th></tr></thead>
     <tbody>
     {% for d in drivers %}
         <tr>
-            <td>{{ d.name }}</td><td>{{ d.phone }}</td><td>{{ d.balance }}</td>
-            <td>{{ d.monthly_orders_count }}</td><td>{{ "محظور" if d.is_blocked else "نشط" }}</td>
+            <td>{{ d.name }}</td><td>{{ d.phone }}</td><td>{{ "%.2f"|format(d.balance) }}</td>
+            <td>{{ d.period_order_count }}</td><td>{{ "محظور" if d.is_blocked else "نشط" }}</td>
             <td>{{ d.telegram_user_id or "—" }}</td>
             <td class="d-flex gap-1 flex-wrap">
                 <form method="POST" action="{{ url_for('update_driver', driver_id=d.id) }}" class="d-flex gap-1">
@@ -41,6 +71,8 @@
                 </form>
             </td>
         </tr>
+    {% else %}
+        <tr><td colspan="7" class="text-center text-muted">مفيش نتائج</td></tr>
     {% endfor %}
     </tbody>
 </table>

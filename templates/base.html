@@ -21,6 +21,7 @@
             <a href="{{ url_for('orders') }}">الطلبات</a>
             <a href="{{ url_for('drivers') }}">المناديب</a>
             <a href="{{ url_for('complaints') }}">الشكاوى</a>
+            <a href="{{ url_for('reports') }}">التقارير</a>
             <a href="{{ url_for('settings') }}">الإعدادات</a>
             <a href="{{ url_for('customers') }}">العملاء والنقاط</a>
             <a href="{{ url_for('telegram_groups') }}">جروبات تليجرام</a>
@@ -28,8 +29,7 @@
             <a href="{{ url_for('logout') }}">تسجيل خروج</a>
         {% elif session.get('driver_id') %}
             <h5 class="text-center py-4">لوحة المندوب</h5>
-            <a href="{{ url_for('driver_dashboard') }}">لوحتي</a>
-            <a href="{{ url_for('available_orders') }}">الطلبات المتاحة</a>
+            <a href="{{ url_for('driver_dashboard') }}">لوحتي (طلباتي + الطلبات المتاحة)</a>
             <a href="{{ url_for('driver_logout') }}">تسجيل خروج</a>
         {% endif %}
     </div>

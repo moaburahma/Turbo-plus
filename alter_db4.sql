@@ -1,0 +1,1 @@
+INSERT INTO settings (key, value) VALUES ('order_auto_cancel_minutes', '0') ON CONFLICT (key) DO NOTHING;
