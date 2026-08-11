@@ -16,20 +16,6 @@ GRAPH_URL = f"https://graph.facebook.com/v20.0/{PHONE_NUMBER_ID}/messages"
 
 CANCEL_WORDS = ("الغاء", "إلغاء", "الغاء الطلب", "إلغاء الطلب", "cancel", "Cancel")
 
-INDIVIDUAL_FORM_TEXT = (
-    "تمام، اكتب البيانات دي كلها في رسالة واحدة، كل بيانة في سطر لوحدها وبنفس الترتيب:\n"
-    "١) مكان التحرك (من)\n"
-    "٢) مكان التوصيل (إلى)\n"
-    "٣) السعر المعروض (بالجنيه)\n"
-    "٤) رقم التليفون أو الواتساب للتواصل"
-)
-PACKAGE_FORM_TEXT = (
-    "تمام، اكتب البيانات دي كلها في رسالة واحدة، كل بيانة في سطر لوحدها وبنفس الترتيب:\n"
-    "١) تفاصيل الطلب المطلوب\n"
-    "٢) السعر المعروض (بالجنيه)\n"
-    "٣) رقم التليفون أو الواتساب للتواصل"
-)
-
 
 def get_order_options():
     individual_enabled = core.get_setting("individual_enabled") == "1"
@@ -54,7 +40,7 @@ def send_buttons(to, body_text, buttons):
 
 
 def send_with_cancel(to, body_text):
-    """بيبعت رسالة نصية ومعاها زرار إلغاء واحد بس، عشان العميل يقدر يلغي وهو بيدخل بياناته."""
+    """بيبعت رسالة نصية ومعاها زرار إلغاء واحد بس."""
     send_buttons(to, body_text, [{"id": "cancel_flow", "title": "إلغاء ❌"}])
 
 
@@ -64,8 +50,47 @@ def send_main_menu(phone):
                   {"id": "start_complaint", "title": core.get_msg("button_complaint")}])
 
 
+def build_combined_form():
+    """بتبني نص الفورم المجمّع ديناميكيًا حسب إعدادات الأدمن الحالية (تفعيل أفراد/طلبات + الحد الأدنى للسعر).
+    بترجع (نص الرسالة، قايمة أسماء الحقول بنفس ترتيب الأسطر المطلوبة من العميل)."""
+    individual_enabled, packages_enabled = get_order_options()
+    min_individual = core.get_min_price("فردي")
+    min_packages = core.get_min_price("طلبات")
+
+    lines = ["تمام، اكتب البيانات دي كلها في رسالة واحدة، كل بيانة في سطر لوحدها وبنفس الترتيب:"]
+    fields = []
+    n = 1
+
+    if individual_enabled and packages_enabled:
+        lines.append(f"{n}) نوع الخدمة (اكتب: أفراد أو طلبات)")
+        fields.append("service_type")
+        n += 1
+
+    if individual_enabled:
+        lines.append(f"{n}) نوع المركبة لو الخدمة أفراد (سيارة أو موتوسيكل) - اكتب خط - لو طلبات")
+        fields.append("vehicle")
+        n += 1
+
+    lines.append(f"{n}) تفاصيل الطلب (مكان التحرك ومكان التوصيل لو أفراد، أو وصف الطلب لو طلبات)")
+    fields.append("details")
+    n += 1
+
+    price_notes = []
+    if individual_enabled:
+        price_notes.append(f"{min_individual:g} جنيه للأفراد")
+    if packages_enabled:
+        price_notes.append(f"{min_packages:g} جنيه للطلبات")
+    lines.append(f"{n}) السعر المعروض بالجنيه (الحد الأدنى: {' / '.join(price_notes)})")
+    fields.append("price")
+    n += 1
+
+    lines.append(f"{n}) رقم التليفون أو الواتساب للتواصل")
+    fields.append("contact")
+
+    return "\n".join(lines), fields
+
+
 def parse_combined_lines(text, expected_count):
-    """بتفكّك رسالة العميل المجمّعة لأسطر، وبترجع أول expected_count سطر غير فاضي، أو None لو مش كفاية."""
     lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
     if len(lines) < expected_count:
         return None
@@ -82,7 +107,6 @@ def verify_webhook():
 @whatsapp_bp.route("/webhook", methods=["POST"])
 def receive_message():
     data = request.get_json()
-    # نرجّع "OK" لميتا فورًا من غير ما نستنى معالجة الرسالة، عشان ميتا متعتبرش الطلب "فشل" وتعيد إرسال نفس الرسالة تاني بعد تأخير
     threading.Thread(target=process_whatsapp_message, args=(data,), daemon=True).start()
     return "OK", 200
 
@@ -97,9 +121,7 @@ def process_whatsapp_message(data):
         message = messages[0]
         phone = message["from"]
         customer = core.get_or_create_customer(phone, "whatsapp")
-        individual_enabled, packages_enabled = get_order_options()
 
-        # 1) أمر الإلغاء بيشتغل دايمًا، حتى لو البوت "ساكت" بسبب طلب شغال
         if message["type"] == "text":
             text_body = message["text"]["body"].strip()
             if text_body in CANCEL_WORDS:
@@ -114,7 +136,7 @@ def process_whatsapp_message(data):
                         send_text(phone, "تم إلغاء العملية الحالية.")
                 return
 
-        # 2) سكوت تام لو عنده طلب شغال (جديد أو قيد التوصيل) لحد ما يتقبل أو يخلص
+        # سكوت تام لو عنده طلب شغال (جديد أو قيد التوصيل) لحد ما يتقبل أو يخلص
         active_order = core.get_customer_active_order(customer["id"])
         if active_order:
             return
@@ -123,19 +145,13 @@ def process_whatsapp_message(data):
             button_id = message["interactive"]["button_reply"]["id"]
 
             if button_id == "start_order":
-                if individual_enabled and packages_enabled:
-                    core.set_customer_state(customer["id"], "awaiting_service_type")
-                    send_buttons(phone, core.get_msg("choose_service_type"),
-                                 [{"id": "type_individual", "title": core.get_msg("button_individual")},
-                                  {"id": "type_package", "title": core.get_msg("button_package")}])
-                elif individual_enabled:
-                    core.set_customer_state(customer["id"], "awaiting_combined_individual")
-                    send_with_cancel(phone, INDIVIDUAL_FORM_TEXT)
-                elif packages_enabled:
-                    core.set_customer_state(customer["id"], "awaiting_combined_package")
-                    send_with_cancel(phone, PACKAGE_FORM_TEXT)
-                else:
+                individual_enabled, packages_enabled = get_order_options()
+                if not individual_enabled and not packages_enabled:
                     send_text(phone, "الخدمة مش متاحة دلوقتي، حاول تاني بعدين.")
+                else:
+                    form_text, _ = build_combined_form()
+                    core.set_customer_state(customer["id"], "awaiting_combined_order")
+                    send_with_cancel(phone, form_text)
 
             elif button_id == "cancel_flow":
                 cancelled_code = core.cancel_customer_order(customer["id"])
@@ -148,57 +164,59 @@ def process_whatsapp_message(data):
                 core.set_customer_state(customer["id"], "awaiting_complaint_order")
                 send_text(phone, core.get_msg("complaint_ask_order"))
 
-            elif button_id == "type_individual":
-                core.set_customer_state(customer["id"], "awaiting_combined_individual")
-                send_with_cancel(phone, INDIVIDUAL_FORM_TEXT)
-
-            elif button_id == "type_package":
-                core.set_customer_state(customer["id"], "awaiting_combined_package")
-                send_with_cancel(phone, PACKAGE_FORM_TEXT)
-
         elif message["type"] == "text":
             text_body = message["text"]["body"].strip()
             state = customer["state"]
 
-            if state == "awaiting_combined_individual":
-                fields = parse_combined_lines(text_body, 4)
-                if not fields:
-                    send_with_cancel(phone, "البيانات ناقصة. " + INDIVIDUAL_FORM_TEXT)
+            if state == "awaiting_combined_order":
+                individual_enabled, packages_enabled = get_order_options()
+                form_text, fields = build_combined_form()
+                parsed = parse_combined_lines(text_body, len(fields))
+                if not parsed:
+                    send_with_cancel(phone, "البيانات ناقصة، تأكد إنك كتبت كل بيانة في سطر منفصل.\n\n" + form_text)
                     return
-                pickup, dropoff, price_text, contact_info = fields
-                try:
-                    price = float(price_text)
-                except ValueError:
-                    send_with_cancel(phone, "السعر لازم يكون رقم صحيح. " + INDIVIDUAL_FORM_TEXT)
-                    return
-                min_price = core.get_min_price("فردي")
-                if price < min_price:
-                    send_with_cancel(phone, core.get_msg("price_too_low", min_price=min_price) + "\n\n" + INDIVIDUAL_FORM_TEXT)
-                    return
-                description = f"من {pickup} إلى {dropoff}"
-                order_code = core.create_order(customer["id"], "فردي", None, description, price, "whatsapp", contact_info)
-                core.set_customer_state(customer["id"], "idle")
-                send_buttons(
-                    phone, f"تم استلام طلبك رقم #{order_code} ✅ وجاري عرضه على المناديب دلوقتي، هنبلغك أول ما حد يوافق.",
-                    [{"id": "cancel_flow", "title": "إلغاء الطلب ❌"}, {"id": "start_complaint", "title": "قدم شكوى"}]
-                )
+                row = dict(zip(fields, parsed))
 
-            elif state == "awaiting_combined_package":
-                fields = parse_combined_lines(text_body, 3)
-                if not fields:
-                    send_with_cancel(phone, "البيانات ناقصة. " + PACKAGE_FORM_TEXT)
+                if "service_type" in row:
+                    st = row["service_type"]
+                    if "فرد" in st:
+                        order_type = "فردي"
+                    elif "طلب" in st:
+                        order_type = "طلبات"
+                    else:
+                        send_with_cancel(phone, "من فضلك اكتب 'أفراد' أو 'طلبات' بالظبط في نوع الخدمة.\n\n" + form_text)
+                        return
+                else:
+                    order_type = "فردي" if individual_enabled else "طلبات"
+
+                if order_type == "فردي" and not individual_enabled:
+                    send_with_cancel(phone, "خدمة توصيل الأفراد مش متاحة دلوقتي.\n\n" + form_text)
                     return
-                details, price_text, contact_info = fields
+                if order_type == "طلبات" and not packages_enabled:
+                    send_with_cancel(phone, "خدمة الطلبات مش متاحة دلوقتي.\n\n" + form_text)
+                    return
+
+                vehicle_type = None
+                if order_type == "فردي" and "vehicle" in row:
+                    vt = row["vehicle"]
+                    if "موتو" in vt or "دراج" in vt:
+                        vehicle_type = "موتوسيكل"
+                    elif "سيار" in vt or "عرب" in vt:
+                        vehicle_type = "سيارة"
+                    else:
+                        vehicle_type = vt
+
                 try:
-                    price = float(price_text)
+                    price = float(row["price"])
                 except ValueError:
-                    send_with_cancel(phone, "السعر لازم يكون رقم صحيح. " + PACKAGE_FORM_TEXT)
+                    send_with_cancel(phone, "السعر لازم يكون رقم صحيح.\n\n" + form_text)
                     return
-                min_price = core.get_min_price("طلبات")
+                min_price = core.get_min_price(order_type)
                 if price < min_price:
-                    send_with_cancel(phone, core.get_msg("price_too_low", min_price=min_price) + "\n\n" + PACKAGE_FORM_TEXT)
+                    send_with_cancel(phone, core.get_msg("price_too_low", min_price=min_price) + "\n\n" + form_text)
                     return
-                order_code = core.create_order(customer["id"], "طلبات", None, details, price, "whatsapp", contact_info)
+
+                order_code = core.create_order(customer["id"], order_type, vehicle_type, row["details"], price, "whatsapp", row["contact"])
                 core.set_customer_state(customer["id"], "idle")
                 send_buttons(
                     phone, f"تم استلام طلبك رقم #{order_code} ✅ وجاري عرضه على المناديب دلوقتي، هنبلغك أول ما حد يوافق.",
@@ -233,7 +251,6 @@ def process_whatsapp_message(data):
                         return
                 except ValueError:
                     pass
-                # أي حاجة تانية غير رقم من 1 لـ 5: نعتبره مش عايز يقيّم، ونكمل عادي من غير ما نلحّ عليه
                 core.set_customer_field(customer["id"], "draft_details", None)
                 core.set_customer_state(customer["id"], "idle")
                 send_main_menu(phone)
