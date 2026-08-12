@@ -182,7 +182,8 @@ def parse_order_code(text):
     return int(match.group()) if match else None
 
 
-def send_message_to_customer(customer, text):
+def send_message_to_customer(customer, text, whatsapp_buttons=None):
+    """whatsapp_buttons: قايمة اختيارية من [{'id':..,'title':..}] لو عايزين نرفق أزرار مع الرسالة (بترجع عادي عادي لتليجرام، الأزرار بتتجاهل هناك)."""
     if customer["telegram_chat_id"]:
         requests.post(
             f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
@@ -190,7 +191,14 @@ def send_message_to_customer(customer, text):
         )
     else:
         headers = {"Authorization": f"Bearer {WHATSAPP_TOKEN}", "Content-Type": "application/json"}
-        payload = {"messaging_product": "whatsapp", "to": customer["phone"], "type": "text", "text": {"body": text}}
+        if whatsapp_buttons:
+            payload = {
+                "messaging_product": "whatsapp", "to": customer["phone"], "type": "interactive",
+                "interactive": {"type": "button", "body": {"text": text},
+                                "action": {"buttons": [{"type": "reply", "reply": {"id": b["id"], "title": b["title"]}} for b in whatsapp_buttons]}}
+            }
+        else:
+            payload = {"messaging_product": "whatsapp", "to": customer["phone"], "type": "text", "text": {"body": text}}
         requests.post(f"https://graph.facebook.com/v20.0/{PHONE_NUMBER_ID}/messages", headers=headers, json=payload, timeout=10)
 
 
@@ -394,15 +402,32 @@ def finish_order(driver_id, order_code):
     customer = conn.execute("SELECT * FROM customers WHERE id = ?", (customer["id"],)).fetchone()
     conn.close()
 
-    # نبلّغ العميل إن طلبه اتسلّم، ونطلب منه يقيّم المندوب
+    # نبلّغ العميل إن طلبه اتسلّم
     try:
-        send_message_to_customer(
-            customer,
-            f"تم تسليم طلبك رقم #{order_code} بنجاح ✅\nكسبت {points_per_order} نقطة، رصيدك الحالي: {new_points} نقطة.\n"
-            f"قيّم تجربتك مع المندوب من 1 لـ 5 (اكتب رقم بس):"
-        )
-        set_customer_state(customer["id"], "awaiting_rating")
-        set_customer_field(customer["id"], "draft_details", str(order_code))
+        if customer["telegram_chat_id"]:
+            # تليجرام مجاني، فبنكمّل نطلب تقييم زي ما هو
+            send_message_to_customer(
+                customer,
+                f"تم تسليم طلبك رقم #{order_code} بنجاح ✅\nكسبت {points_per_order} نقطة، رصيدك الحالي: {new_points} نقطة.\n"
+                f"قيّم تجربتك مع المندوب من 1 لـ 5 (اكتب رقم بس):"
+            )
+            set_customer_state(customer["id"], "awaiting_rating")
+            set_customer_field(customer["id"], "draft_details", str(order_code))
+        else:
+            # واتساب: رسالة واحدة بس فيها التسليم + النقاط + القائمة الرئيسية (تقليل عدد الرسائل)
+            finish_text = (
+                f"تم تسليم طلبك رقم #{order_code} بنجاح ✅\n"
+                f"رصيدك الحالي من نقاط المكافآت: {new_points} نقطة.\n\n"
+                f"{get_msg('welcome_menu')}"
+            )
+            send_message_to_customer(
+                customer, finish_text,
+                whatsapp_buttons=[
+                    {"id": "start_order", "title": get_msg("button_order")},
+                    {"id": "start_complaint", "title": get_msg("button_complaint")}
+                ]
+            )
+            set_customer_state(customer["id"], "idle")
     except Exception as e:
         print("فشل إبلاغ العميل بإنهاء الطلب:", e)
 

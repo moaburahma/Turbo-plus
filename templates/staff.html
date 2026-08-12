@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-4">الموظفين والصلاحيات</h3>
+
+<div class="card p-3 mb-4">
+    <h5 class="mb-3">إضافة موظف جديد</h5>
+    <form method="POST" action="{{ url_for('add_staff') }}">
+        <div class="row g-2 mb-3">
+            <div class="col-md-4">
+                <input class="form-control" name="username" placeholder="اسم المستخدم" required>
+            </div>
+            <div class="col-md-4">
+                <input class="form-control" type="password" name="password" placeholder="كلمة المرور" required>
+            </div>
+        </div>
+        <div class="row">
+            {% for key in permission_keys %}
+            <div class="col-md-4 form-check mb-2">
+                <input class="form-check-input" type="checkbox" name="{{ key }}" id="new_{{ key }}">
+                <label class="form-check-label" for="new_{{ key }}">{{ permission_labels[key] }}</label>
+            </div>
+            {% endfor %}
+        </div>
+        <button class="btn btn-dark mt-2">إضافة الموظف</button>
+    </form>
+</div>
+
+<h5 class="mb-3">الموظفين الحاليين</h5>
+{% for s in staff %}
+<div class="card p-3 mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="mb-0">
+            {{ s.username }}
+            {% if s.is_main_admin %}<span class="badge bg-dark">أدمن رئيسي</span>{% endif %}
+        </h6>
+        {% if not s.is_main_admin %}
+        <form method="POST" action="{{ url_for('delete_staff', staff_id=s.id) }}" onsubmit="return confirm('متأكد إنك عايز تحذف الموظف {{ s.username }}؟');">
+            <button class="btn btn-sm btn-outline-danger">حذف الموظف</button>
+        </form>
+        {% endif %}
+    </div>
+
+    {% if not s.is_main_admin %}
+    <form method="POST" action="{{ url_for('update_staff_permissions', staff_id=s.id) }}">
+        <div class="row">
+            {% for key in permission_keys %}
+            <div class="col-md-4 form-check mb-2">
+                <input class="form-check-input" type="checkbox" name="{{ key }}" id="{{ s.id }}_{{ key }}" {% if s.perms.get(key) %}checked{% endif %}>
+                <label class="form-check-label" for="{{ s.id }}_{{ key }}">{{ permission_labels[key] }}</label>
+            </div>
+            {% endfor %}
+        </div>
+        <button class="btn btn-sm btn-dark mt-2">حفظ الصلاحيات</button>
+    </form>
+    {% else %}
+    <p class="text-muted mb-0" style="font-size:0.9rem;">الأدمن الرئيسي عنده كل الصلاحيات تلقائيًا، مينفعش تتقيّد.</p>
+    {% endif %}
+</div>
+{% endfor %}
+{% endblock %}

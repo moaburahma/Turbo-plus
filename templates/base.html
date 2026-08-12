@@ -18,14 +18,15 @@
         {% if session.get('admin_id') %}
             <h5 class="text-center py-4">لوحة التحكم</h5>
             <a href="{{ url_for('dashboard') }}">الرئيسية</a>
-            <a href="{{ url_for('orders') }}">الطلبات</a>
-            <a href="{{ url_for('drivers') }}">المناديب</a>
-            <a href="{{ url_for('complaints') }}">الشكاوى</a>
-            <a href="{{ url_for('reports') }}">التقارير</a>
-            <a href="{{ url_for('settings') }}">الإعدادات</a>
-            <a href="{{ url_for('customers') }}">العملاء والنقاط</a>
-            <a href="{{ url_for('telegram_groups') }}">جروبات تليجرام</a>
-            <a href="{{ url_for('messages') }}">نصوص البوت</a>
+            {% if has_permission('orders_view') %}<a href="{{ url_for('orders') }}">الطلبات</a>{% endif %}
+            {% if has_permission('drivers_view') %}<a href="{{ url_for('drivers') }}">المناديب</a>{% endif %}
+            {% if has_permission('complaints_view') %}<a href="{{ url_for('complaints') }}">الشكاوى</a>{% endif %}
+            {% if has_permission('reports_view') %}<a href="{{ url_for('reports') }}">التقارير</a>{% endif %}
+            {% if has_permission('settings_view') %}<a href="{{ url_for('settings') }}">الإعدادات</a>{% endif %}
+            {% if has_permission('customers_view') %}<a href="{{ url_for('customers') }}">العملاء والنقاط</a>{% endif %}
+            {% if has_permission('telegram_groups_view') %}<a href="{{ url_for('telegram_groups') }}">جروبات تليجرام</a>{% endif %}
+            {% if has_permission('messages_view') %}<a href="{{ url_for('messages') }}">نصوص البوت</a>{% endif %}
+            {% if session.get('is_main_admin') %}<a href="{{ url_for('staff') }}">الموظفين والصلاحيات</a>{% endif %}
             <a href="{{ url_for('logout') }}">تسجيل خروج</a>
         {% elif session.get('driver_id') %}
             <h5 class="text-center py-4">لوحة المندوب</h5>

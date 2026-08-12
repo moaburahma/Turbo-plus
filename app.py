@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import os
+import json
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from functools import wraps
@@ -13,6 +14,36 @@ app.register_blueprint(whatsapp_bp)
 
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+
+# كل صلاحية ممكن تتحدد لموظف: المفتاح اللي بيتخزن في عمود permissions (JSON)، والاسم اللي بيظهر في اللوحة
+PERMISSION_KEYS = [
+    "orders_view", "orders_edit", "orders_delete",
+    "drivers_view", "drivers_manage", "drivers_balance", "drivers_delete",
+    "complaints_view", "complaints_reply",
+    "customers_view", "customers_points", "customers_delete",
+    "reports_view",
+    "settings_view",
+    "telegram_groups_view",
+    "messages_view",
+]
+PERMISSION_LABELS = {
+    "orders_view": "عرض صفحة الطلبات",
+    "orders_edit": "تعديل حالة الطلب",
+    "orders_delete": "حذف الطلبات",
+    "drivers_view": "عرض صفحة المناديب",
+    "drivers_manage": "إضافة/حظر مناديب وتعديل بياناتهم",
+    "drivers_balance": "شحن رصيد المناديب",
+    "drivers_delete": "حذف المناديب",
+    "complaints_view": "عرض صفحة الشكاوى",
+    "complaints_reply": "الرد على الشكاوى",
+    "customers_view": "عرض صفحة العملاء",
+    "customers_points": "إضافة نقاط للعملاء",
+    "customers_delete": "حذف العملاء",
+    "reports_view": "عرض التقارير",
+    "settings_view": "الإعدادات العامة (عمولة، حدود سعر، رصيد الشركة...)",
+    "telegram_groups_view": "إدارة جروبات تليجرام",
+    "messages_view": "تعديل نصوص البوت",
+}
 
 
 class DBConnection:
@@ -48,6 +79,34 @@ def login_required(f):
     return wrapper
 
 
+def permission_required(perm_key):
+    """زي login_required، بس كمان بتتأكد إن الأدمن (لو مش الأدمن الرئيسي) عنده الصلاحية دي بالتحديد."""
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            if not session.get("admin_id"):
+                return redirect(url_for("login"))
+            if session.get("is_main_admin"):
+                return f(*args, **kwargs)
+            perms = session.get("permissions", {})
+            if not perms.get(perm_key):
+                flash("مفيش عندك صلاحية توصل للصفحة دي، كلم الأدمن الرئيسي.")
+                return redirect(url_for("dashboard"))
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
+def has_permission(perm_key):
+    """بتتستخدم جوه القوالب أو الكود عشان نتأكد من صلاحية معيّنة من غير ما نمنع الوصول للصفحة كلها."""
+    if session.get("is_main_admin"):
+        return True
+    return bool(session.get("permissions", {}).get(perm_key))
+
+
+app.jinja_env.globals["has_permission"] = has_permission
+
+
 def driver_login_required(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
@@ -67,6 +126,11 @@ def login():
         if admin and check_password_hash(admin["password_hash"], request.form["password"]):
             session.clear()
             session["admin_id"] = admin["id"]
+            session["is_main_admin"] = bool(admin["is_main_admin"])
+            try:
+                session["permissions"] = json.loads(admin["permissions"] or "{}")
+            except (json.JSONDecodeError, TypeError):
+                session["permissions"] = {}
             return redirect(url_for("dashboard"))
         flash("اسم المستخدم أو كلمة المرور غلط")
     return render_template("login.html")
@@ -101,7 +165,7 @@ def dashboard():
 
 
 @app.route("/orders")
-@login_required
+@permission_required("orders_view")
 def orders():
     search = request.args.get("q", "")
     conn = get_db()
@@ -119,7 +183,7 @@ def orders():
 
 
 @app.route("/orders/<int:order_id>/delete", methods=["POST"])
-@login_required
+@permission_required("orders_delete")
 def delete_order(order_id):
     conn = get_db()
     # نفصل أي شكاوى مرتبطة بالطلب ده الأول عشان الحذف ميعملش مشكلة في القيود بين الجداول
@@ -132,7 +196,7 @@ def delete_order(order_id):
 
 
 @app.route("/orders/<int:order_id>/status", methods=["POST"])
-@login_required
+@permission_required("orders_edit")
 def update_order_status(order_id):
     conn = get_db()
     conn.execute("UPDATE orders SET status = ? WHERE id = ?", (request.form["status"], order_id))
@@ -143,7 +207,7 @@ def update_order_status(order_id):
 
 # ============ إدارة المناديب ============
 @app.route("/drivers")
-@login_required
+@permission_required("drivers_view")
 def drivers():
     search = request.args.get("q", "")
     min_orders = request.args.get("min_orders", "")
@@ -178,7 +242,7 @@ def drivers():
 
 
 @app.route("/drivers/add", methods=["POST"])
-@login_required
+@permission_required("drivers_manage")
 def add_driver():
     conn = get_db()
     conn.execute(
@@ -194,13 +258,19 @@ def add_driver():
 @login_required
 def update_driver(driver_id):
     action = request.form["action"]
+    if action == "add_balance" and not has_permission("drivers_balance"):
+        flash("مفيش عندك صلاحية شحن رصيد المناديب.")
+        return redirect(url_for("drivers"))
+    if action in ("block", "unblock") and not has_permission("drivers_manage"):
+        flash("مفيش عندك صلاحية حظر/فك حظر المناديب.")
+        return redirect(url_for("drivers"))
     conn = get_db()
     if action == "block":
         conn.execute("UPDATE drivers SET is_blocked = 1 WHERE id = ?", (driver_id,))
     elif action == "unblock":
         conn.execute("UPDATE drivers SET is_blocked = 0 WHERE id = ?", (driver_id,))
     elif action == "add_balance":
-        conn.execute("UPDATE drivers SET balance = balance + ? WHERE id = ?", (float(request.form["amount"]), driver_id))
+        conn.execute("UPDATE drivers SET balance = ROUND((balance + ?)::numeric, 2) WHERE id = ?", (float(request.form["amount"]), driver_id))
     conn.commit()
     conn.close()
     return redirect(url_for("drivers"))
@@ -208,7 +278,7 @@ def update_driver(driver_id):
 
 # ============ الإعدادات ============
 @app.route("/drivers/<int:driver_id>/delete", methods=["POST"])
-@login_required
+@permission_required("drivers_delete")
 def delete_driver(driver_id):
     conn = get_db()
     # نفصل المندوب عن أي طلبات قديمة بتاعته الأول عشان منكسرش القيود بين الجداول
@@ -221,7 +291,7 @@ def delete_driver(driver_id):
 
 
 @app.route("/drivers/<int:driver_id>/set_telegram_id", methods=["POST"])
-@login_required
+@permission_required("drivers_manage")
 def update_driver_telegram_id(driver_id):
     conn = get_db()
     conn.execute("UPDATE drivers SET telegram_user_id = ? WHERE id = ?",
@@ -233,7 +303,7 @@ def update_driver_telegram_id(driver_id):
 
 
 @app.route("/settings", methods=["GET", "POST"])
-@login_required
+@permission_required("settings_view")
 def settings():
     conn = get_db()
     if request.method == "POST":
@@ -331,7 +401,7 @@ def settings():
 
 # ============ نصوص البوت ============
 @app.route("/messages")
-@login_required
+@permission_required("messages_view")
 def messages():
     conn = get_db()
     rows = conn.execute("SELECT * FROM bot_messages ORDER BY key").fetchall()
@@ -340,7 +410,7 @@ def messages():
 
 
 @app.route("/messages/update", methods=["POST"])
-@login_required
+@permission_required("messages_view")
 def update_messages():
     conn = get_db()
     for key in request.form:
@@ -352,7 +422,7 @@ def update_messages():
 
 # ============ الشكاوى ============
 @app.route("/complaints")
-@login_required
+@permission_required("complaints_view")
 def complaints():
     conn = get_db()
     rows = conn.execute("""
@@ -430,7 +500,7 @@ def driver_finish_order(order_code):
     return redirect(url_for("driver_dashboard"))
 
 @app.route("/complaints/<int:complaint_id>/reply", methods=["POST"])
-@login_required
+@permission_required("complaints_reply")
 def reply_complaint(complaint_id):
     import core
     conn = get_db()
@@ -444,7 +514,7 @@ def reply_complaint(complaint_id):
     return redirect(url_for("complaints"))
 
 @app.route("/telegram-groups")
-@login_required
+@permission_required("telegram_groups_view")
 def telegram_groups():
     conn = get_db()
     rows = conn.execute("SELECT * FROM telegram_groups").fetchall()
@@ -453,7 +523,7 @@ def telegram_groups():
 
 
 @app.route("/telegram-groups/add", methods=["POST"])
-@login_required
+@permission_required("telegram_groups_view")
 def add_telegram_group():
     conn = get_db()
     conn.execute(
@@ -466,7 +536,7 @@ def add_telegram_group():
 
 
 @app.route("/telegram-groups/<int:group_id>/delete", methods=["POST"])
-@login_required
+@permission_required("telegram_groups_view")
 def delete_telegram_group(group_id):
     conn = get_db()
     conn.execute("DELETE FROM telegram_groups WHERE id = ?", (group_id,))
@@ -510,7 +580,7 @@ def compute_period_range(period, specific_month=""):
 
 
 @app.route("/reports")
-@login_required
+@permission_required("reports_view")
 def reports():
     target = request.args.get("target", "drivers")  # drivers أو customers
     period = request.args.get("period", "month")  # day / week / month / year / specific_month
@@ -575,7 +645,7 @@ def reports():
 
 
 @app.route("/customers")
-@login_required
+@permission_required("customers_view")
 def customers():
     search = request.args.get("q", "")
     min_orders = request.args.get("min_orders", "")
@@ -607,7 +677,7 @@ def customers():
 
 
 @app.route("/customers/<int:customer_id>/delete", methods=["POST"])
-@login_required
+@permission_required("customers_delete")
 def delete_customer(customer_id):
     conn = get_db()
     # نحذف الشكاوى والطلبات المرتبطة بالعميل الأول عشان الحذف ميعملش مشكلة في القيود بين الجداول
@@ -621,7 +691,7 @@ def delete_customer(customer_id):
 
 
 @app.route("/customers/<int:customer_id>/add_points", methods=["POST"])
-@login_required
+@permission_required("customers_points")
 def add_customer_points(customer_id):
     import core
     conn = get_db()
@@ -633,7 +703,7 @@ def add_customer_points(customer_id):
     flash("تم إضافة النقاط وإبلاغ العميل")
     return redirect(url_for("customers"))
 @app.route("/drivers/<int:driver_id>/set_password", methods=["POST"])
-@login_required
+@permission_required("drivers_manage")
 def set_driver_password(driver_id):
     conn = get_db()
     conn.execute("UPDATE drivers SET password_hash = ? WHERE id = ?",
@@ -642,6 +712,83 @@ def set_driver_password(driver_id):
     conn.close()
     flash("تم تحديث كلمة مرور المندوب")
     return redirect(url_for("drivers"))
+
+
+# ============ إدارة الموظفين والصلاحيات (للأدمن الرئيسي بس) ============
+def main_admin_required(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if not session.get("admin_id"):
+            return redirect(url_for("login"))
+        if not session.get("is_main_admin"):
+            flash("الصفحة دي للأدمن الرئيسي بس.")
+            return redirect(url_for("dashboard"))
+        return f(*args, **kwargs)
+    return wrapper
+
+
+@app.route("/staff")
+@main_admin_required
+def staff():
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM admin_users ORDER BY id").fetchall()
+    conn.close()
+    staff_list = []
+    for row in rows:
+        try:
+            perms = json.loads(row["permissions"] or "{}")
+        except (json.JSONDecodeError, TypeError):
+            perms = {}
+        staff_list.append({**row, "perms": perms})
+    return render_template("staff.html", staff=staff_list, permission_keys=PERMISSION_KEYS, permission_labels=PERMISSION_LABELS)
+
+
+@app.route("/staff/add", methods=["POST"])
+@main_admin_required
+def add_staff():
+    perms_json = json.dumps({k: bool(request.form.get(k)) for k in PERMISSION_KEYS})
+    conn = get_db()
+    existing = conn.execute("SELECT id FROM admin_users WHERE username = ?", (request.form["username"],)).fetchone()
+    if existing:
+        flash("اسم المستخدم ده مستخدم بالفعل")
+        conn.close()
+        return redirect(url_for("staff"))
+    conn.execute(
+        "INSERT INTO admin_users (username, password_hash, permissions, is_main_admin) VALUES (?, ?, ?, 0)",
+        (request.form["username"], generate_password_hash(request.form["password"]), perms_json)
+    )
+    conn.commit()
+    conn.close()
+    flash("تم إضافة الموظف بنجاح")
+    return redirect(url_for("staff"))
+
+
+@app.route("/staff/<int:staff_id>/update_permissions", methods=["POST"])
+@main_admin_required
+def update_staff_permissions(staff_id):
+    perms_json = json.dumps({k: bool(request.form.get(k)) for k in PERMISSION_KEYS})
+    conn = get_db()
+    conn.execute("UPDATE admin_users SET permissions = ? WHERE id = ?", (perms_json, staff_id))
+    conn.commit()
+    conn.close()
+    flash("تم تحديث صلاحيات الموظف")
+    return redirect(url_for("staff"))
+
+
+@app.route("/staff/<int:staff_id>/delete", methods=["POST"])
+@main_admin_required
+def delete_staff(staff_id):
+    conn = get_db()
+    target = conn.execute("SELECT * FROM admin_users WHERE id = ?", (staff_id,)).fetchone()
+    if target and target["is_main_admin"]:
+        flash("مينفعش تحذفي الأدمن الرئيسي")
+        conn.close()
+        return redirect(url_for("staff"))
+    conn.execute("DELETE FROM admin_users WHERE id = ?", (staff_id,))
+    conn.commit()
+    conn.close()
+    flash("تم حذف الموظف")
+    return redirect(url_for("staff"))
 
 
 if __name__ == "__main__":
