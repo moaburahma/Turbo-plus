@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-4">رسالة جماعية للعملاء</h3>
+
+<div class="row mb-4">
+    <div class="col-auto"><span class="badge bg-dark">إجمالي العملاء: {{ total }}</span></div>
+    <div class="col-auto"><span class="badge bg-success">واتساب: {{ whatsapp_count }}</span></div>
+    <div class="col-auto"><span class="badge bg-primary">تليجرام: {{ telegram_count }}</span></div>
+</div>
+
+<div class="alert alert-warning" style="max-width:650px;">
+    <b>تنبيه مهم بخصوص واتساب:</b> واتساب مش بيسمح تبعتي رسالة حرة لعميل إلا لو كلّم البوت خلال آخر 24 ساعة.
+    لو العميل ماكلّمش البوت من فترة، رسالته هتفشل من غير تنبيه واضح. تليجرام مفيهوش القيد ده خالص.
+</div>
+
+<form method="POST" style="max-width:650px;">
+    <label class="form-label">إرسال لـ:</label>
+    <select name="target" class="form-select mb-3">
+        <option value="all">كل العملاء</option>
+        <option value="whatsapp">عملاء واتساب بس</option>
+        <option value="telegram">عملاء تليجرام بس</option>
+    </select>
+
+    <label class="form-label">نص الرسالة:</label>
+    <textarea class="form-control mb-3" name="message" rows="5" required placeholder="اكتبي رسالتك هنا..."></textarea>
+
+    <button class="btn btn-dark" onclick="return confirm('متأكدة إنك عايزة تبعتي الرسالة دي لكل العملاء المختارين؟');">إرسال</button>
+</form>
+{% endblock %}

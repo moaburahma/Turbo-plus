@@ -12,7 +12,7 @@
         <select name="period" class="form-select form-select-sm">
             <option value="all" {% if period == 'all' %}selected{% endif %}>كل الوقت</option>
             <option value="day" {% if period == 'day' %}selected{% endif %}>اليوم</option>
-            <option value="week" {% if period == 'week' %}selected{% endif %}>آخر 7 أيام</option>
+            <option value="week" {% if period == 'week' %}selected{% endif %}>الأسبوع الحالي (سبت-جمعة)</option>
             <option value="month" {% if period == 'month' %}selected{% endif %}>الشهر الحالي</option>
             <option value="year" {% if period == 'year' %}selected{% endif %}>السنة الحالية</option>
             <option value="specific_month" {% if period == 'specific_month' %}selected{% endif %}>شهر معيّن</option>
@@ -32,10 +32,11 @@
 </form>
 
 <table class="table bg-white">
-    <thead><tr><th>الرقم</th><th>النقاط</th><th>عدد الطلبات في الفترة</th><th>إضافة نقاط</th><th></th></tr></thead>
+    <thead><tr><th>الكود</th><th>الرقم</th><th>النقاط</th><th>عدد الطلبات في الفترة</th><th>إضافة نقاط</th><th></th></tr></thead>
     <tbody>
     {% for c in customers %}
         <tr>
+            <td><b>{{ "C-%04d"|format(c.id) }}</b></td>
             <td>{{ c.phone }}</td>
             <td>{{ "%.2f"|format(c.points) }}</td>
             <td>{{ c.order_count }}</td>
@@ -52,7 +53,7 @@
             </td>
         </tr>
     {% else %}
-        <tr><td colspan="5" class="text-center text-muted">مفيش نتائج</td></tr>
+        <tr><td colspan="6" class="text-center text-muted">مفيش نتائج</td></tr>
     {% endfor %}
     </tbody>
 </table>

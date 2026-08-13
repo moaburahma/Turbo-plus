@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import os
 import json
+import threading
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from functools import wraps
@@ -25,6 +26,7 @@ PERMISSION_KEYS = [
     "settings_view",
     "telegram_groups_view",
     "messages_view",
+    "broadcast_send",
 ]
 PERMISSION_LABELS = {
     "orders_view": "عرض صفحة الطلبات",
@@ -43,6 +45,7 @@ PERMISSION_LABELS = {
     "settings_view": "الإعدادات العامة (عمولة، حدود سعر، رصيد الشركة...)",
     "telegram_groups_view": "إدارة جروبات تليجرام",
     "messages_view": "تعديل نصوص البوت",
+    "broadcast_send": "إرسال رسائل جماعية للعملاء",
 }
 
 
@@ -551,7 +554,9 @@ def compute_period_range(period, specific_month=""):
         start = now.strftime("%Y-%m-%d 00:00:00")
         end = (now + timedelta(days=1)).strftime("%Y-%m-%d 00:00:00")
     elif period == "week":
-        start = (now - timedelta(days=7)).strftime("%Y-%m-%d 00:00:00")
+        days_since_saturday = (now.weekday() - 5) % 7  # الأسبوع عندنا يبدأ يوم السبت
+        saturday = now - timedelta(days=days_since_saturday)
+        start = saturday.strftime("%Y-%m-%d 00:00:00")
         end = (now + timedelta(days=1)).strftime("%Y-%m-%d 00:00:00")
     elif period == "year":
         start = now.strftime("%Y-01-01 00:00:00")
@@ -789,6 +794,41 @@ def delete_staff(staff_id):
     conn.close()
     flash("تم حذف الموظف")
     return redirect(url_for("staff"))
+
+
+@app.route("/broadcast", methods=["GET", "POST"])
+@permission_required("broadcast_send")
+def broadcast():
+    if request.method == "POST":
+        import core
+        message_text = request.form["message"].strip()
+        target = request.form.get("target", "all")  # all / whatsapp / telegram
+
+        def send_broadcast_job():
+            conn2 = get_db()
+            if target == "whatsapp":
+                rows = conn2.execute("SELECT * FROM customers WHERE telegram_chat_id IS NULL").fetchall()
+            elif target == "telegram":
+                rows = conn2.execute("SELECT * FROM customers WHERE telegram_chat_id IS NOT NULL").fetchall()
+            else:
+                rows = conn2.execute("SELECT * FROM customers").fetchall()
+            conn2.close()
+            for c in rows:
+                try:
+                    core.send_message_to_customer(c, message_text)
+                except Exception as e:
+                    print(f"فشل إرسال رسالة جماعية للعميل {c['id']}:", e)
+
+        threading.Thread(target=send_broadcast_job, daemon=True).start()
+        flash("جاري إرسال الرسالة الجماعية دلوقتي في الخلفية، ممكن تاخد شوية وقت حسب عدد العملاء.")
+        return redirect(url_for("broadcast"))
+
+    conn = get_db()
+    total = conn.execute("SELECT COUNT(*) c FROM customers").fetchone()["c"]
+    whatsapp_count = conn.execute("SELECT COUNT(*) c FROM customers WHERE telegram_chat_id IS NULL").fetchone()["c"]
+    telegram_count = conn.execute("SELECT COUNT(*) c FROM customers WHERE telegram_chat_id IS NOT NULL").fetchone()["c"]
+    conn.close()
+    return render_template("broadcast.html", total=total, whatsapp_count=whatsapp_count, telegram_count=telegram_count)
 
 
 if __name__ == "__main__":

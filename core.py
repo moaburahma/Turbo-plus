@@ -83,17 +83,18 @@ def get_customer_active_order(customer_id):
 
 
 def _period_bounds(period):
-    """بيرجع (بداية الفترة كـ نص تاريخ، مفتاح فريد للفترة) لأنواع الفترات: daily / weekly / monthly."""
+    """بيرجع (بداية الفترة كـ نص تاريخ، مفتاح فريد للفترة) لأنواع الفترات: daily / weekly / monthly.
+    الأسبوع عندنا بيبدأ يوم السبت (مش الاتنين زي المعيار الدولي)."""
     now = datetime.now()
     if period == "daily":
         start = now.strftime("%Y-%m-%d 00:00:00")
         key = now.strftime("%Y-%m-%d")
     elif period == "weekly":
-        monday = now - timedelta(days=now.weekday())
-        start = monday.strftime("%Y-%m-%d 00:00:00")
-        iso = now.isocalendar()
-        key = f"{iso[0]}-W{iso[1]:02d}"
-    else:  # monthly
+        days_since_saturday = (now.weekday() - 5) % 7  # weekday(): الاتنين=0 ... السبت=5 ... الأحد=6
+        saturday = now - timedelta(days=days_since_saturday)
+        start = saturday.strftime("%Y-%m-%d 00:00:00")
+        key = saturday.strftime("%Y-%m-%d")  # تاريخ السبت نفسه بيبقى مفتاح فريد للأسبوع ده
+    else:  # monthly (شهر ميلادي حقيقي زي سبتمبر ويناير، مش 30 يوم)
         start = now.strftime("%Y-%m-01 00:00:00")
         key = now.strftime("%Y-%m")
     return start, key

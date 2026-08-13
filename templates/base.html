@@ -24,6 +24,7 @@
             {% if has_permission('reports_view') %}<a href="{{ url_for('reports') }}">التقارير</a>{% endif %}
             {% if has_permission('settings_view') %}<a href="{{ url_for('settings') }}">الإعدادات</a>{% endif %}
             {% if has_permission('customers_view') %}<a href="{{ url_for('customers') }}">العملاء والنقاط</a>{% endif %}
+            {% if has_permission('broadcast_send') %}<a href="{{ url_for('broadcast') }}">رسالة جماعية</a>{% endif %}
             {% if has_permission('telegram_groups_view') %}<a href="{{ url_for('telegram_groups') }}">جروبات تليجرام</a>{% endif %}
             {% if has_permission('messages_view') %}<a href="{{ url_for('messages') }}">نصوص البوت</a>{% endif %}
             {% if session.get('is_main_admin') %}<a href="{{ url_for('staff') }}">الموظفين والصلاحيات</a>{% endif %}

@@ -14,7 +14,7 @@
         <label class="form-label mb-1">الفترة</label>
         <select name="period" class="form-select form-select-sm">
             <option value="day" {% if period == 'day' %}selected{% endif %}>يومي (اليوم)</option>
-            <option value="week" {% if period == 'week' %}selected{% endif %}>أسبوعي (آخر 7 أيام)</option>
+            <option value="week" {% if period == 'week' %}selected{% endif %}>أسبوعي (سبت-جمعة)</option>
             <option value="month" {% if period == 'month' %}selected{% endif %}>شهري (الشهر الحالي)</option>
             <option value="year" {% if period == 'year' %}selected{% endif %}>سنوي (السنة الحالية)</option>
             <option value="specific_month" {% if period == 'specific_month' %}selected{% endif %}>شهر معيّن</option>

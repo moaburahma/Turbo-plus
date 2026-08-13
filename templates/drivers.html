@@ -12,7 +12,7 @@
         <select name="period" class="form-select form-select-sm">
             <option value="all" {% if period == 'all' %}selected{% endif %}>كل الوقت</option>
             <option value="day" {% if period == 'day' %}selected{% endif %}>اليوم</option>
-            <option value="week" {% if period == 'week' %}selected{% endif %}>آخر 7 أيام</option>
+            <option value="week" {% if period == 'week' %}selected{% endif %}>الأسبوع الحالي (سبت-جمعة)</option>
             <option value="month" {% if period == 'month' %}selected{% endif %}>الشهر الحالي</option>
             <option value="year" {% if period == 'year' %}selected{% endif %}>السنة الحالية</option>
             <option value="specific_month" {% if period == 'specific_month' %}selected{% endif %}>شهر معيّن</option>
@@ -39,10 +39,11 @@
     <button class="btn btn-dark">إضافة مندوب</button>
 </form>
 <table class="table bg-white">
-    <thead><tr><th>الاسم</th><th>الرقم</th><th>الرصيد</th><th>عدد الطلبات في الفترة</th><th>الحالة</th><th>Telegram ID</th><th>إجراءات</th></tr></thead>
+    <thead><tr><th>الكود</th><th>الاسم</th><th>الرقم</th><th>الرصيد</th><th>عدد الطلبات في الفترة</th><th>الحالة</th><th>Telegram ID</th><th>إجراءات</th></tr></thead>
     <tbody>
     {% for d in drivers %}
         <tr>
+            <td><b>{{ "D-%04d"|format(d.id) }}</b></td>
             <td>{{ d.name }}</td><td>{{ d.phone }}</td><td>{{ "%.2f"|format(d.balance) }}</td>
             <td>{{ d.period_order_count }}</td><td>{{ "محظور" if d.is_blocked else "نشط" }}</td>
             <td>{{ d.telegram_user_id or "—" }}</td>
@@ -72,7 +73,7 @@
             </td>
         </tr>
     {% else %}
-        <tr><td colspan="7" class="text-center text-muted">مفيش نتائج</td></tr>
+        <tr><td colspan="8" class="text-center text-muted">مفيش نتائج</td></tr>
     {% endfor %}
     </tbody>
 </table>

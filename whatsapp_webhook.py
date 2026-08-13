@@ -74,7 +74,7 @@ def process_whatsapp_message(data):
         phone = message["from"]
         customer = core.get_or_create_customer(phone, "whatsapp")
 
-        # 1) أمر الإلغاء بيشتغل دايمًا
+        # 1) أمر الإلغاء النصي بيشتغل دايمًا
         if message["type"] == "text":
             text_body = message["text"]["body"].strip()
             if text_body in CANCEL_WORDS:
@@ -89,9 +89,29 @@ def process_whatsapp_message(data):
                         send_text(phone, "تم إلغاء العملية الحالية.")
                 return
 
-        # 2) سكوت تام لو عنده طلب شغال (جديد أو قيد التوصيل)
+        # 2) زرار "إلغاء" و"قدم شكوى" لازم يشتغلوا حتى لو الطلب لسه شغال (قبل فحص السكوت، عشان ميتبلعوش)
+        if message["type"] == "interactive":
+            button_id = message["interactive"]["button_reply"]["id"]
+            if button_id == "cancel_flow":
+                active = core.get_customer_active_order(customer["id"])
+                if active and active["status"] == "قيد التوصيل":
+                    send_text(phone, "طلبك قيد التنفيذ حاليًا ومش ممكن يتلغي دلوقتي، تواصل مع المندوب مباشرة لو محتاج.")
+                else:
+                    cancelled_code = core.cancel_customer_order(customer["id"])
+                    if cancelled_code:
+                        send_text(phone, f"تم إلغاء طلبك رقم #{cancelled_code} ✅")
+                    else:
+                        send_text(phone, "تم إلغاء العملية الحالية.")
+                return
+            if button_id == "start_complaint":
+                core.set_customer_state(customer["id"], "awaiting_complaint_order")
+                send_text(phone, core.get_msg("complaint_ask_order"))
+                return
+
+        # 3) سكوت تام لو عنده طلب شغال (جديد أو قيد التوصيل)، إلا لو بيكمل شكوى فعلاً بدأها
         active_order = core.get_customer_active_order(customer["id"])
-        if active_order:
+        complaint_states = ("awaiting_complaint_order", "awaiting_complaint_message")
+        if active_order and customer["state"] not in complaint_states:
             return
 
         if message["type"] == "interactive":
@@ -105,14 +125,14 @@ def process_whatsapp_message(data):
                     core.set_customer_state(customer["id"], "awaiting_type_choice")
                     send_buttons(
                         phone,
-                        "اختار وسيلة التوصيل لو الخدمة أفراد، أو دوس 'طلبات'.\nوبعد الاختيار اكتب: من فين لحد فين (لو أفراد) أو وصف الطلب (لو طلبات).",
+                        "اختار وسيلة التوصيل لو الخدمة أفراد، أو دوس 'طلبات'.",
                         [{"id": "vehicle_car", "title": "سيارة"}, {"id": "vehicle_moto", "title": "موتوسيكل"},
                          {"id": "type_package", "title": "طلبات"}]
                     )
                 elif individual_enabled:
                     core.set_customer_state(customer["id"], "awaiting_type_choice")
                     send_buttons(
-                        phone, "اختار وسيلة التوصيل، وبعدها اكتب: من فين لحد فين.",
+                        phone, "اختار وسيلة التوصيل:",
                         [{"id": "vehicle_car", "title": "سيارة"}, {"id": "vehicle_moto", "title": "موتوسيكل"},
                          {"id": "cancel_flow", "title": "إلغاء ❌"}]
                     )
@@ -125,23 +145,13 @@ def process_whatsapp_message(data):
                 vehicle = "سيارة" if button_id == "vehicle_car" else "موتوسيكل"
                 core.set_customer_field(customer["id"], "draft_vehicle", vehicle)
                 core.set_customer_state(customer["id"], "awaiting_details")
-                # ملحوظة: مفيش رسالة هنا عمدًا، بنستنى العميل يكتب "من فين لحد فين" زي ما اتقاله في الرسالة اللي فاتت
+                # رسالة صريحة توضيحية عشان العميل ميتوهش بعد اختيار الزرار
+                send_with_cancel(phone, f"تمام، اخترت {vehicle}. دلوقتي اكتب: من فين لحد فين؟")
 
             elif button_id == "type_package":
                 core.set_customer_field(customer["id"], "draft_vehicle", "PACKAGE")
                 core.set_customer_state(customer["id"], "awaiting_details")
-                # مفيش رسالة هنا عمدًا برضو، بنستنى وصف الطلب
-
-            elif button_id == "cancel_flow":
-                cancelled_code = core.cancel_customer_order(customer["id"])
-                if cancelled_code:
-                    send_text(phone, f"تم إلغاء طلبك رقم #{cancelled_code} ✅")
-                else:
-                    send_text(phone, "تم إلغاء العملية الحالية.")
-
-            elif button_id == "start_complaint":
-                core.set_customer_state(customer["id"], "awaiting_complaint_order")
-                send_text(phone, core.get_msg("complaint_ask_order"))
+                send_with_cancel(phone, "تمام، دلوقتي اكتب وصف الطلب المطلوب:")
 
         elif message["type"] == "text":
             text_body = message["text"]["body"].strip()
