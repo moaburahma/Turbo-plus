@@ -38,6 +38,34 @@
         اكتبي 0 لو عايزة تعطّلي الميزة دي خالص. العميل هيوصله رسالة إلغاء تلقائي لو حصل.
     </div>
 
+    <hr>
+    <h6>التحكم في رسائل بوت واتساب (إظهار/إخفاء)</h6>
+    <div class="alert alert-warning py-2" style="font-size: 0.9rem;">
+        لتغيير <b>نص</b> أي رسالة من دول، روحي لصفحة "نصوص البوت" ودوري على المفاتيح: <code>welcome_menu</code>,
+        <code>whatsapp_msg2_details</code>, <code>ask_price</code>, <code>whatsapp_msg4_received</code>, <code>whatsapp_msg5_finish</code>.
+        هنا بس بتتحكمي تظهر الرسالة ولا لأ. <b>لو أخفيتي رسالة بتجمع بيانات (رسالة 2 أو 3)، لازم تتأكدي إن نص رسالة تانية بيوضح للعميل إيه المطلوب منه بدالها.</b>
+    </div>
+    <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" name="whatsapp_show_msg1_welcome" id="wm1" {% if whatsapp_toggles.whatsapp_show_msg1_welcome == '1' %}checked{% endif %}>
+        <label class="form-check-label" for="wm1">1) رسالة الترحيب الأولى (اطلب خدمة / قدم شكوى)</label>
+    </div>
+    <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" name="whatsapp_show_msg2_details" id="wm2" {% if whatsapp_toggles.whatsapp_show_msg2_details == '1' %}checked{% endif %}>
+        <label class="form-check-label" for="wm2">2) رسالة اختيار المركبة/النوع وطلب التفاصيل</label>
+    </div>
+    <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" name="whatsapp_show_msg3_price" id="wm3" {% if whatsapp_toggles.whatsapp_show_msg3_price == '1' %}checked{% endif %}>
+        <label class="form-check-label" for="wm3">3) رسالة طلب السعر</label>
+    </div>
+    <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" name="whatsapp_show_msg4_received" id="wm4" {% if whatsapp_toggles.whatsapp_show_msg4_received == '1' %}checked{% endif %}>
+        <label class="form-check-label" for="wm4">4) رسالة "تم استلام طلبك"</label>
+    </div>
+    <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" name="whatsapp_show_msg5_finish" id="wm5" {% if whatsapp_toggles.whatsapp_show_msg5_finish == '1' %}checked{% endif %}>
+        <label class="form-check-label" for="wm5">5) رسالة "تم التسليم" + النقاط</label>
+    </div>
+
     <button class="btn btn-dark">حفظ</button>
 </form>
 

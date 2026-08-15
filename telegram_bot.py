@@ -91,6 +91,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     chat_id = str(query.message.chat_id)
     customer = core.get_or_create_customer(chat_id, "telegram")
+    if customer.get("is_blocked"):
+        return
     individual_enabled, packages_enabled = get_order_options()
 
     if data == "start_order":
@@ -148,6 +150,8 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         chat_id = str(update.effective_chat.id)
         customer = core.get_or_create_customer(chat_id, "telegram")
+        if customer.get("is_blocked"):
+            return
         state = customer["state"]
         text_body = update.message.text.strip()
 

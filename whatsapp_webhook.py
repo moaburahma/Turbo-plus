@@ -23,6 +23,11 @@ def get_order_options():
     return individual_enabled, packages_enabled
 
 
+def msg_enabled(key):
+    """بتتأكد من إعداد الأدمن هل الرسالة دي مفعّلة (ظاهرة) ولا لأ. الافتراضي مفعّلة لو الإعداد مش موجود."""
+    return core.get_setting(key) != "0"
+
+
 def send_text(to, body):
     headers = {"Authorization": f"Bearer {WHATSAPP_TOKEN}", "Content-Type": "application/json"}
     payload = {"messaging_product": "whatsapp", "to": to, "type": "text", "text": {"body": body}}
@@ -44,6 +49,9 @@ def send_with_cancel(to, body_text):
 
 
 def send_main_menu(phone):
+    # رسالة 1: ممكن تتقفل من الإعدادات
+    if not msg_enabled("whatsapp_show_msg1_welcome"):
+        return
     send_buttons(phone, core.get_msg("welcome_menu"),
                  [{"id": "start_order", "title": core.get_msg("button_order")},
                   {"id": "start_complaint", "title": core.get_msg("button_complaint")}])
@@ -73,6 +81,10 @@ def process_whatsapp_message(data):
         message = messages[0]
         phone = message["from"]
         customer = core.get_or_create_customer(phone, "whatsapp")
+
+        # 0) العميل المحظور متتجاهل رسائله تمامًا (من غير ما نبعتله أي رد، توفير للفلوس)
+        if customer.get("is_blocked"):
+            return
 
         # 1) أمر الإلغاء النصي بيشتغل دايمًا
         if message["type"] == "text":
@@ -119,39 +131,43 @@ def process_whatsapp_message(data):
 
             if button_id == "start_order":
                 individual_enabled, packages_enabled = get_order_options()
+                msg2_body = core.get_msg("whatsapp_msg2_details")
                 if not individual_enabled and not packages_enabled:
                     send_text(phone, "الخدمة مش متاحة دلوقتي، حاول تاني بعدين.")
                 elif individual_enabled and packages_enabled:
                     core.set_customer_state(customer["id"], "awaiting_type_choice")
-                    send_buttons(
-                        phone,
-                        "اختار وسيلة التوصيل لو الخدمة أفراد، أو دوس 'طلبات'.",
-                        [{"id": "vehicle_car", "title": "سيارة"}, {"id": "vehicle_moto", "title": "موتوسيكل"},
-                         {"id": "type_package", "title": "طلبات"}]
-                    )
+                    if msg_enabled("whatsapp_show_msg2_details"):
+                        send_buttons(
+                            phone, msg2_body,
+                            [{"id": "vehicle_car", "title": "سيارة"}, {"id": "vehicle_moto", "title": "موتوسيكل"},
+                             {"id": "type_package", "title": "طلبات"}]
+                        )
                 elif individual_enabled:
                     core.set_customer_state(customer["id"], "awaiting_type_choice")
-                    send_buttons(
-                        phone, "اختار وسيلة التوصيل:",
-                        [{"id": "vehicle_car", "title": "سيارة"}, {"id": "vehicle_moto", "title": "موتوسيكل"},
-                         {"id": "cancel_flow", "title": "إلغاء ❌"}]
-                    )
+                    if msg_enabled("whatsapp_show_msg2_details"):
+                        send_buttons(
+                            phone, msg2_body,
+                            [{"id": "vehicle_car", "title": "سيارة"}, {"id": "vehicle_moto", "title": "موتوسيكل"},
+                             {"id": "cancel_flow", "title": "إلغاء ❌"}]
+                        )
                 else:  # packages فقط
                     core.set_customer_field(customer["id"], "draft_vehicle", "PACKAGE")
                     core.set_customer_state(customer["id"], "awaiting_details")
-                    send_with_cancel(phone, "اكتب وصف الطلب المطلوب:")
+                    if msg_enabled("whatsapp_show_msg2_details"):
+                        send_with_cancel(phone, msg2_body)
 
             elif button_id in ("vehicle_car", "vehicle_moto"):
                 vehicle = "سيارة" if button_id == "vehicle_car" else "موتوسيكل"
                 core.set_customer_field(customer["id"], "draft_vehicle", vehicle)
                 core.set_customer_state(customer["id"], "awaiting_details")
-                # رسالة صريحة توضيحية عشان العميل ميتوهش بعد اختيار الزرار
-                send_with_cancel(phone, f"تمام، اخترت {vehicle}. دلوقتي اكتب: من فين لحد فين؟")
+                if msg_enabled("whatsapp_show_msg2_details"):
+                    send_with_cancel(phone, f"تمام، اخترت {vehicle}. {core.get_msg('whatsapp_msg2_details')}")
 
             elif button_id == "type_package":
                 core.set_customer_field(customer["id"], "draft_vehicle", "PACKAGE")
                 core.set_customer_state(customer["id"], "awaiting_details")
-                send_with_cancel(phone, "تمام، دلوقتي اكتب وصف الطلب المطلوب:")
+                if msg_enabled("whatsapp_show_msg2_details"):
+                    send_with_cancel(phone, core.get_msg("whatsapp_msg2_details"))
 
         elif message["type"] == "text":
             text_body = message["text"]["body"].strip()
@@ -162,7 +178,8 @@ def process_whatsapp_message(data):
                 core.set_customer_state(customer["id"], "awaiting_price")
                 order_type = "طلبات" if customer["draft_vehicle"] == "PACKAGE" else "فردي"
                 min_price = core.get_min_price(order_type)
-                send_with_cancel(phone, core.get_msg("ask_price", min_price=min_price))
+                if msg_enabled("whatsapp_show_msg3_price"):
+                    send_with_cancel(phone, core.get_msg("ask_price", min_price=min_price))
 
             elif state == "awaiting_price":
                 try:
@@ -180,10 +197,11 @@ def process_whatsapp_message(data):
                 order_code = core.create_order(customer["id"], order_type, vehicle_type, customer["draft_details"], price, "whatsapp", phone)
                 core.set_customer_state(customer["id"], "idle")
                 core.set_customer_field(customer["id"], "draft_vehicle", None)
-                send_buttons(
-                    phone, f"تم استلام طلبك رقم #{order_code} ✅ وجاري عرضه على المناديب دلوقتي، هنبلغك أول ما حد يوافق.",
-                    [{"id": "cancel_flow", "title": "إلغاء الطلب ❌"}, {"id": "start_complaint", "title": "قدم شكوى"}]
-                )
+                if msg_enabled("whatsapp_show_msg4_received"):
+                    send_buttons(
+                        phone, core.get_msg("whatsapp_msg4_received", order_code=order_code),
+                        [{"id": "cancel_flow", "title": "إلغاء الطلب ❌"}, {"id": "start_complaint", "title": "قدم شكوى"}]
+                    )
 
             elif state == "awaiting_complaint_order":
                 core.set_customer_field(customer["id"], "draft_details", text_body)

@@ -415,19 +415,16 @@ def finish_order(driver_id, order_code):
             set_customer_state(customer["id"], "awaiting_rating")
             set_customer_field(customer["id"], "draft_details", str(order_code))
         else:
-            # واتساب: رسالة واحدة بس فيها التسليم + النقاط + القائمة الرئيسية (تقليل عدد الرسائل)
-            finish_text = (
-                f"تم تسليم طلبك رقم #{order_code} بنجاح ✅\n"
-                f"رصيدك الحالي من نقاط المكافآت: {new_points} نقطة.\n\n"
-                f"{get_msg('welcome_menu')}"
-            )
-            send_message_to_customer(
-                customer, finish_text,
-                whatsapp_buttons=[
-                    {"id": "start_order", "title": get_msg("button_order")},
-                    {"id": "start_complaint", "title": get_msg("button_complaint")}
-                ]
-            )
+            # واتساب: رسالة 5 (قابلة للتعديل والإخفاء من لوحة الأدمن)
+            if get_setting("whatsapp_show_msg5_finish") != "0":
+                finish_text = get_msg("whatsapp_msg5_finish", order_code=order_code, points=new_points)
+                send_message_to_customer(
+                    customer, finish_text,
+                    whatsapp_buttons=[
+                        {"id": "start_order", "title": get_msg("button_order")},
+                        {"id": "start_complaint", "title": get_msg("button_complaint")}
+                    ]
+                )
             set_customer_state(customer["id"], "idle")
     except Exception as e:
         print("فشل إبلاغ العميل بإنهاء الطلب:", e)

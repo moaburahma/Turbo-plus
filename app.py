@@ -21,12 +21,13 @@ PERMISSION_KEYS = [
     "orders_view", "orders_edit", "orders_delete",
     "drivers_view", "drivers_manage", "drivers_balance", "drivers_delete",
     "complaints_view", "complaints_reply",
-    "customers_view", "customers_points", "customers_delete",
+    "customers_view", "customers_points", "customers_delete", "customers_manage",
     "reports_view",
     "settings_view",
     "telegram_groups_view",
     "messages_view",
     "broadcast_send",
+    "customers_manage",
 ]
 PERMISSION_LABELS = {
     "orders_view": "عرض صفحة الطلبات",
@@ -41,12 +42,23 @@ PERMISSION_LABELS = {
     "customers_view": "عرض صفحة العملاء",
     "customers_points": "إضافة نقاط للعملاء",
     "customers_delete": "حذف العملاء",
+    "customers_manage": "حظر/فك حظر العملاء",
     "reports_view": "عرض التقارير",
     "settings_view": "الإعدادات العامة (عمولة، حدود سعر، رصيد الشركة...)",
     "telegram_groups_view": "إدارة جروبات تليجرام",
     "messages_view": "تعديل نصوص البوت",
     "broadcast_send": "إرسال رسائل جماعية للعملاء",
+    "customers_manage": "حظر/فك حظر العملاء",
 }
+
+# مفاتيح إظهار/إخفاء كل رسالة من رسائل بوت الواتساب الخمسة (بتتحدد من صفحة الإعدادات)
+WHATSAPP_MSG_TOGGLE_KEYS = [
+    "whatsapp_show_msg1_welcome",
+    "whatsapp_show_msg2_details",
+    "whatsapp_show_msg3_price",
+    "whatsapp_show_msg4_received",
+    "whatsapp_show_msg5_finish",
+]
 
 
 class DBConnection:
@@ -347,6 +359,13 @@ def settings():
                     "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
                     (key, request.form.get(key, "0"))
                 )
+            for key in WHATSAPP_MSG_TOGGLE_KEYS:
+                val = "1" if request.form.get(key) == "on" else "0"
+                conn.execute(
+                    "INSERT INTO settings (key, value) VALUES (?, ?) "
+                    "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+                    (key, val)
+                )
             conn.commit()
             flash("تم حفظ الإعدادات")
 
@@ -392,6 +411,7 @@ def settings():
     ]}
     wallet_row = conn.execute("SELECT balance FROM admin_wallet WHERE id = 1").fetchone()
     wallet_balance = round(wallet_row["balance"], 2) if wallet_row else 0
+    whatsapp_toggles = {key: setting_value(key, "1") for key in WHATSAPP_MSG_TOGGLE_KEYS}
     conn.close()
     return render_template(
         "settings.html", commission=commission, points=points,
@@ -399,7 +419,7 @@ def settings():
         min_price_individual=min_price_individual, min_price_packages=min_price_packages,
         driver_accept_cooldown_minutes=driver_accept_cooldown_minutes, wallet_balance=wallet_balance,
         order_auto_cancel_minutes=order_auto_cancel_minutes,
-        reward=reward_values
+        reward=reward_values, whatsapp_toggles=whatsapp_toggles
     )
 
 # ============ نصوص البوت ============
@@ -692,6 +712,19 @@ def delete_customer(customer_id):
     conn.commit()
     conn.close()
     flash("تم حذف العميل وكل طلباته")
+    return redirect(url_for("customers"))
+
+
+@app.route("/customers/<int:customer_id>/toggle_block", methods=["POST"])
+@permission_required("customers_manage")
+def toggle_block_customer(customer_id):
+    conn = get_db()
+    customer = conn.execute("SELECT * FROM customers WHERE id = ?", (customer_id,)).fetchone()
+    new_status = 0 if customer["is_blocked"] else 1
+    conn.execute("UPDATE customers SET is_blocked = ? WHERE id = ?", (new_status, customer_id))
+    conn.commit()
+    conn.close()
+    flash("تم حظر العميل" if new_status else "تم فك حظر العميل")
     return redirect(url_for("customers"))
 
 
