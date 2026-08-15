@@ -3,6 +3,11 @@
 
 <div class="mb-2">
     <span class="badge bg-dark">رصيدك الحالي: {{ driver.balance }} ج</span>
+    {% if avg_rating %}
+    <span class="badge bg-warning text-dark">⭐ تقييمك: {{ avg_rating }} / 5 ({{ rating_count }} تقييم)</span>
+    {% else %}
+    <span class="badge bg-secondary">لسه معندكش تقييمات</span>
+    {% endif %}
 </div>
 
 <h5 class="mt-4 mb-2">1) طلباتي الحالية</h5>

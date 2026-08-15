@@ -39,12 +39,13 @@
     <button class="btn btn-dark">إضافة مندوب</button>
 </form>
 <table class="table bg-white">
-    <thead><tr><th>الكود</th><th>الاسم</th><th>الرقم</th><th>الرصيد</th><th>عدد الطلبات في الفترة</th><th>الحالة</th><th>Telegram ID</th><th>إجراءات</th></tr></thead>
+    <thead><tr><th>الكود</th><th>الاسم</th><th>الرقم</th><th>الرصيد</th><th>التقييم</th><th>عدد الطلبات في الفترة</th><th>الحالة</th><th>Telegram ID</th><th>إجراءات</th></tr></thead>
     <tbody>
     {% for d in drivers %}
         <tr>
             <td><b>{{ "D-%04d"|format(d.id) }}</b></td>
             <td>{{ d.name }}</td><td>{{ d.phone }}</td><td>{{ "%.2f"|format(d.balance) }}</td>
+            <td>{% if d.avg_rating %}⭐ {{ d.avg_rating }} ({{ d.rating_count }}){% else %}—{% endif %}</td>
             <td>{{ d.period_order_count }}</td><td>{{ "محظور" if d.is_blocked else "نشط" }}</td>
             <td>{{ d.telegram_user_id or "—" }}</td>
             <td class="d-flex gap-1 flex-wrap">
@@ -73,7 +74,7 @@
             </td>
         </tr>
     {% else %}
-        <tr><td colspan="8" class="text-center text-muted">مفيش نتائج</td></tr>
+        <tr><td colspan="9" class="text-center text-muted">مفيش نتائج</td></tr>
     {% endfor %}
     </tbody>
 </table>

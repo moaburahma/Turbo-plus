@@ -233,7 +233,9 @@ def drivers():
     conn = get_db()
     query = """
         SELECT drivers.*,
-               COUNT(orders.id) FILTER (WHERE orders.status = 'مكتملة' AND orders.finished_at >= ? AND orders.finished_at < ?) as period_order_count
+               COUNT(orders.id) FILTER (WHERE orders.status = 'مكتملة' AND orders.finished_at >= ? AND orders.finished_at < ?) as period_order_count,
+               ROUND(AVG(orders.rating) FILTER (WHERE orders.rating IS NOT NULL)::numeric, 1) as avg_rating,
+               COUNT(orders.id) FILTER (WHERE orders.rating IS NOT NULL) as rating_count
         FROM drivers
         LEFT JOIN orders ON orders.driver_id = drivers.id
         WHERE 1=1
@@ -485,8 +487,13 @@ def driver_dashboard():
     driver = conn.execute("SELECT * FROM drivers WHERE id = ?", (session["driver_id"],)).fetchone()
     my_orders = conn.execute("SELECT * FROM orders WHERE driver_id = ? ORDER BY id DESC", (driver["id"],)).fetchall()
     available = conn.execute("SELECT * FROM orders WHERE status = 'جديد' ORDER BY id DESC").fetchall()
+    rating_row = conn.execute(
+        "SELECT ROUND(AVG(rating)::numeric, 1) as avg_rating, COUNT(rating) as rating_count "
+        "FROM orders WHERE driver_id = ? AND rating IS NOT NULL", (driver["id"],)
+    ).fetchone()
     conn.close()
-    return render_template("driver_dashboard.html", driver=driver, orders=my_orders, available_orders=available)
+    return render_template("driver_dashboard.html", driver=driver, orders=my_orders, available_orders=available,
+                           avg_rating=rating_row["avg_rating"], rating_count=rating_row["rating_count"])
 
 
 @app.route("/available-orders")
