@@ -415,8 +415,17 @@ def finish_order(driver_id, order_code):
             set_customer_state(customer["id"], "awaiting_rating")
             set_customer_field(customer["id"], "draft_details", str(order_code))
         else:
-            # واتساب: رسالة 5 (قابلة للتعديل والإخفاء من لوحة الأدمن)
-            if get_setting("whatsapp_show_msg5_finish") != "0":
+            # واتساب: رسالة 5 (تسليم + نقاط)، وممكن يتبعها رسالة تقييم (رسالة 6) لو مفعّلة، الاتنين قابلين للتعديل والإخفاء من لوحة الأدمن
+            show_finish = get_setting("whatsapp_show_msg5_finish") != "0"
+            show_rating = get_setting("whatsapp_show_msg6_rating") != "0"
+
+            if show_finish and show_rating:
+                finish_text = get_msg("whatsapp_msg5_finish", order_code=order_code, points=new_points)
+                rating_text = get_msg("whatsapp_msg6_rating")
+                send_message_to_customer(customer, f"{finish_text}\n\n{rating_text}")
+                set_customer_state(customer["id"], "awaiting_rating")
+                set_customer_field(customer["id"], "draft_details", str(order_code))
+            elif show_finish and not show_rating:
                 finish_text = get_msg("whatsapp_msg5_finish", order_code=order_code, points=new_points)
                 send_message_to_customer(
                     customer, finish_text,
@@ -425,7 +434,14 @@ def finish_order(driver_id, order_code):
                         {"id": "start_complaint", "title": get_msg("button_complaint")}
                     ]
                 )
-            set_customer_state(customer["id"], "idle")
+                set_customer_state(customer["id"], "idle")
+            elif not show_finish and show_rating:
+                rating_text = get_msg("whatsapp_msg6_rating")
+                send_message_to_customer(customer, rating_text)
+                set_customer_state(customer["id"], "awaiting_rating")
+                set_customer_field(customer["id"], "draft_details", str(order_code))
+            else:
+                set_customer_state(customer["id"], "idle")
     except Exception as e:
         print("فشل إبلاغ العميل بإنهاء الطلب:", e)
 

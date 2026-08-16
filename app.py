@@ -58,6 +58,7 @@ WHATSAPP_MSG_TOGGLE_KEYS = [
     "whatsapp_show_msg3_price",
     "whatsapp_show_msg4_received",
     "whatsapp_show_msg5_finish",
+    "whatsapp_show_msg6_rating",
 ]
 
 

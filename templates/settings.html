@@ -42,7 +42,8 @@
     <h6>التحكم في رسائل بوت واتساب (إظهار/إخفاء)</h6>
     <div class="alert alert-warning py-2" style="font-size: 0.9rem;">
         لتغيير <b>نص</b> أي رسالة من دول، روحي لصفحة "نصوص البوت" ودوري على المفاتيح: <code>welcome_menu</code>,
-        <code>whatsapp_msg2_details</code>, <code>ask_price</code>, <code>whatsapp_msg4_received</code>, <code>whatsapp_msg5_finish</code>.
+        <code>whatsapp_msg2_details</code>, <code>ask_price</code>, <code>whatsapp_msg4_received</code>, <code>whatsapp_msg5_finish</code>,
+        <code>whatsapp_msg6_rating</code>, <code>whatsapp_msg6_rating_thanks</code>.
         هنا بس بتتحكمي تظهر الرسالة ولا لأ. <b>لو أخفيتي رسالة بتجمع بيانات (رسالة 2 أو 3)، لازم تتأكدي إن نص رسالة تانية بيوضح للعميل إيه المطلوب منه بدالها.</b>
     </div>
     <div class="form-check mb-2">
@@ -64,6 +65,10 @@
     <div class="form-check mb-3">
         <input class="form-check-input" type="checkbox" name="whatsapp_show_msg5_finish" id="wm5" {% if whatsapp_toggles.whatsapp_show_msg5_finish == '1' %}checked{% endif %}>
         <label class="form-check-label" for="wm5">5) رسالة "تم التسليم" + النقاط</label>
+    </div>
+    <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" name="whatsapp_show_msg6_rating" id="wm6" {% if whatsapp_toggles.whatsapp_show_msg6_rating == '1' %}checked{% endif %}>
+        <label class="form-check-label" for="wm6">6) رسالة طلب تقييم المندوب (1-5)</label>
     </div>
 
     <button class="btn btn-dark">حفظ</button>

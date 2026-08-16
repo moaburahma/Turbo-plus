@@ -217,6 +217,26 @@ def process_whatsapp_message(data):
                 core.set_customer_state(customer["id"], "idle")
                 send_text(phone, core.get_msg("complaint_confirmed"))
 
+            elif state == "awaiting_rating":
+                order_code = int(customer["draft_details"]) if customer.get("draft_details") else None
+                try:
+                    rating = int(text_body)
+                    if 1 <= rating <= 5 and order_code:
+                        core.submit_rating(customer["id"], order_code, rating)
+                        core.set_customer_field(customer["id"], "draft_details", None)
+                        core.set_customer_state(customer["id"], "idle")
+                        thanks_text = core.get_msg("whatsapp_msg6_rating_thanks")
+                        send_buttons(phone, f"{thanks_text}\n\n{core.get_msg('welcome_menu')}",
+                                     [{"id": "start_order", "title": core.get_msg("button_order")},
+                                      {"id": "start_complaint", "title": core.get_msg("button_complaint")}])
+                        return
+                except ValueError:
+                    pass
+                # لو مش رقم من 1 لـ 5، منلحّش عليه، بنكمل عادي
+                core.set_customer_field(customer["id"], "draft_details", None)
+                core.set_customer_state(customer["id"], "idle")
+                send_main_menu(phone)
+
             else:
                 send_main_menu(phone)
 
